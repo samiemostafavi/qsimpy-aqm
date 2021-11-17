@@ -21,10 +21,10 @@
 
    ```
 
-2. Move into the repository, create a Python 3.6.0 virtual environment (requires [virtualenv](https://pypi.org/project/virtualenv/)), and activate it:
+2. Move into the `conditional-latency-probability-prediction` repository, create a Python 3.6.0 virtual environment (requires [virtualenv](https://pypi.org/project/virtualenv/)), and activate it:
 
     ``` bash
-    $ cd time-sensitive-aqm
+    $ cd time-sensitive-aqm/conditional-latency-probability-prediction
 
     $ python -m virtualenv --python=python3.6.0 ./venv
 

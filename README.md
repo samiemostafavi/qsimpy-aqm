@@ -34,3 +34,22 @@
     ```
 
 3. Install the required packages by `requirements.txt`: `pip install -Ur requirements.txt`.
+
+### Working with submodules
+
+Linked submodules are "frozen" on a specific commit, not a branch as you might otherwise expect.
+In case you made changes to one submodule and then wanted to link the new state to its own and this repository, the procedure is the following:
+
+1. Move into the submodule directory.
+2. Add, commit, and push your changes to upstream: `git add . && git commit -m <commit comment> && git push`.
+3. Move back out into the main directory of this repository.
+4. Add, commit, and push the modified submodule: `git add <submodule dir> && git commit -m <updated submodule X> && git push`.
+
+In case the submodule was updated separately and you wish to add those changes to this project:
+
+1. Move into the submodule directory.
+2. Pull the changes: `git pull`.
+3. Move back out into the main directory of this repository.
+4. Add, commit, and push the modified submodule: `git add <submodule dir> && git commit -m <updated submodule X> && git push`.
+
+

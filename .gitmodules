@@ -1,6 +1,0 @@
-[submodule "conditional-latency-probability-prodiction"]
-	path = conditional-latency-probability-prodiction
-	url = git@github.com:samiemostafavi/conditional-latency-probability-prodiction.git
-[submodule "matlab-queuing-simulation"]
-	path = matlab-queuing-simulation
-	url = git@github.com:samiemostafavi/matlab-queuing-simulation.git

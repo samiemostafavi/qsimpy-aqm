@@ -11,7 +11,7 @@ from pr3d.de import ConditionalGammaMixtureEVM, ConditionalGaussianMM
 
 from arrivals import HeavyTailGamma
 from qsimpy.random import Deterministic, RandomProcess
-from qsimpy_aqm import DeltaQueue, PredictorAddresses
+from qsimpy_aqm.delta import DeltaQueue, PredictorAddresses
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes

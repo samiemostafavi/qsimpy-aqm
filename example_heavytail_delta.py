@@ -1,17 +1,16 @@
-import functools
 import pandas as pd
-import qsimpy
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import polars as pl
 import time
-from utils import HeavyTail
-from pr3d.de import ConditionalGammaMixtureEVM, ConditionalGaussianMM
 
-from arrivals import HeavyTailGamma
+import qsimpy
+from pr3d.de import ConditionalGammaMixtureEVM, ConditionalGaussianMM
 from qsimpy.random import Deterministic, RandomProcess
 from qsimpy_aqm.delta import DeltaQueue, PredictorAddresses
+
+from arrivals import HeavyTailGamma
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes
@@ -28,7 +27,7 @@ source = qsimpy.TimedSource(
     name='start-node',
     arrival_rp=arrival,
     task_type='0',
-    delay_bound=60.0,
+    delay_bound=100.0,
 )
 model.add_entity(source)
 
@@ -38,7 +37,7 @@ service = HeavyTailGamma(
     seed = 120034,
     gamma_concentration = 5,
     gamma_rate = 0.5,
-    gpd_concentration = 0.4,
+    gpd_concentration = 0.1,
     threshold_qnt = 0.8,
     dtype = 'float64',
     batch_size = 1000000,
@@ -47,7 +46,7 @@ service = HeavyTailGamma(
 #queue = qsimpy.SimpleQueue(
 #    name='queue',
 #    service_rp= service,
-#    queue_limit=10, #None
+#    #queue_limit=10, #None
 #)
 
 queue = DeltaQueue(
@@ -148,7 +147,6 @@ df_dropped = df.filter(pl.col('end_time') == -1)
 df_finished = df.filter(pl.col('end_time') >= 0)
 df = df_finished
 
-
 # plot end-to-end delay profile
 sns.set_style('darkgrid')
 sns.displot(df['end2end_delay'],kde=True)
@@ -156,3 +154,6 @@ plt.savefig('end2end_aqm.png')
 
 sns.displot(df['service_delay'],kde=True)
 plt.savefig('service_delay_aqm.png')
+
+sns.displot(df['queue_delay'],kde=True)
+plt.savefig('queue_delay_aqm.png')

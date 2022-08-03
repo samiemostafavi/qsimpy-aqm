@@ -18,21 +18,19 @@ import tensorflow as tf
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-# If got any errors, try wiping CUDA cache: sudo rm -rf .nv/
 
 def create_run_graph(params):
     
     # Must move all tf context initializations inside the child process
     import qsimpy
-    from pr3d.de import ConditionalGammaMixtureEVM, ConditionalGaussianMM
-    from qsimpy.random import Deterministic, RandomProcess
-    from qsimpy_aqm.delta import DeltaQueue, PredictorAddresses
+    from qsimpy.random import Deterministic
+    from qsimpy_aqm.codel import CodelQueue
 
     from arrivals import HeavyTailGamma
 
     # Create the QSimPy environment
     # a class for keeping all of the entities and accessing their attributes
-    model = qsimpy.Model(name=f"Delta AQM benchmark #{params['run_number']}")
+    model = qsimpy.Model(name=f"Codel AQM benchmark #{params['run_number']}")
 
     # Create a source
     # arrival process deterministic
@@ -60,13 +58,11 @@ def create_run_graph(params):
         dtype = 'float64',
         batch_size = params['arrivals_number'],
     )
-    queue = DeltaQueue(
+    queue = CodelQueue(
         name='queue',
         service_rp= service,
-        predictor_addresses=PredictorAddresses(
-            h5_address = 'predictors/gmevm_model_0.h5',
-            json_address = 'predictors/gmevm_model_0.json',
-        ),
+        interval = params['codel_interval'],
+        target = params['codel_target'],
     )
     model.add_entity(queue)
 
@@ -175,23 +171,29 @@ if __name__ == "__main__":
 
     # project folder setting
     p = Path(__file__).parents[0]
-    project_path = str(p) + '/projects/delta_benchmark/'
+    project_path = str(p) + '/projects/codel_tuning/'
 
     # simulation parameters
     # quantile values of no-aqm model with p1 as gpd_concentration
+    # tune CoDel, target_delay is the queuing delay
     bench_params = { # target_delay
-        'p999':131.054472733289, 
-        'p99':107.70908319205046,
-        'p9':73.76106050610542,
-        'p8':57.15778886526823,
+        'm1':{'target_delay':57.15,'codel_target':20,'codel_interval':10},
+        'm2':{'target_delay':57.15,'codel_target':20,'codel_interval':20},
+        'm3':{'target_delay':57.15,'codel_target':20,'codel_interval':40},
+        'm4':{'target_delay':57.15,'codel_target':30,'codel_interval':15},
+        'm5':{'target_delay':57.15,'codel_target':30,'codel_interval':30},
+        'm6':{'target_delay':57.15,'codel_target':30,'codel_interval':60},
+        'm7':{'target_delay':57.15,'codel_target':40,'codel_interval':20},
+        'm8':{'target_delay':57.15,'codel_target':40,'codel_interval':40},
+        'm9':{'target_delay':57.15,'codel_target':40,'codel_interval':80},
     }
-    
-    # another important 
+
+    # important command for multiprocessing
     mp.set_start_method('spawn', force=True)
 
     # 4 x 4, until 1000000 took 7 hours
-    sequential_runs = 4 # 4
-    parallel_runs = 4 # 18
+    sequential_runs = 9 # 4
+    parallel_runs = 1 # 18
     for j in range(sequential_runs):
 
         processes = []
@@ -203,7 +205,7 @@ if __name__ == "__main__":
 
             # create and prepare the results directory
             results_path = project_path + key_this_run  + '_results/'
-            records_path = results_path + 'records_delta/'
+            records_path = results_path + 'records_codel/'
             os.makedirs(records_path, exist_ok=True)
 
             params = {
@@ -212,11 +214,12 @@ if __name__ == "__main__":
                 'run_number' : j*parallel_runs + i,
                 'arrival_seed' : 100234+i*100101+j*10223,
                 'service_seed' : 120034+i*200202+j*20111,
-                'target_delay' : bench_params[key_this_run], # tail decays
                 'until': int(1000000), # 10M timesteps takes 1000 seconds, generates 900k samples
                 'report_state' : 0.05, #0.05 # report when 10%, 20%, etc progress reaches
             }
 
+            # add codel params
+            params = { **params, **bench_params[key_this_run] }
             
             p = mp.Process(target=create_run_graph, args=(params,))
             p.start()

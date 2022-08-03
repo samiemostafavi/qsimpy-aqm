@@ -31,7 +31,7 @@ def init_spark():
 spark,sc = init_spark()
 
 # open the dataframe from parquet files
-project_folder = "projects/aqm_benchmark/" 
+project_folder = "projects/codel_tuning/" 
 project_paths = [project_folder+name for name in os.listdir(project_folder) if os.path.isdir(os.path.join(project_folder, name))]
 
 # limit
@@ -39,19 +39,18 @@ project_paths = [project_folder+name for name in os.listdir(project_folder) if o
 logger.info(F"All project folders: {project_paths}")
 
 bench_params = { # target_delay
-    'p8_results':0.8,
-    'p9_results':0.9,
-    'p99_results':0.99,
-    'p999_results':0.999,
+    'm1_results':1,
+    'm2_results':2,
+    'm3_results':3,
+    'm4_results':4,
+    'm5_results':5,
+    'm6_results':6,
+    'm7_results':7,
+    'm8_results':8,
+    'm9_results':9,
 }
 
-records_paths = { 
-    'records_codel': 'codel',
-    'records_delta': 'delta',
-}
-
-results = pd.DataFrame(columns=["delay target","no-aqm",*list(records_paths.values())])
-
+results = pd.DataFrame(columns=["parameter set","result"])
 for folder_name in bench_params.keys():
     project_path = [s for s in project_paths if folder_name in s]
     project_path = project_path[0]
@@ -59,43 +58,37 @@ for folder_name in bench_params.keys():
 
     logger.info(F"Starting importing parquet files in: {project_path}")
 
-    res_arr = []
-    for key in records_paths.keys():
-        logger.info(f"AQM method: {key}")
+    records_path = project_path + '/records_codel/'
+    all_files = os.listdir(records_path)
+    files = []
+    for f in all_files:
+        if f.endswith(".parquet"):
+            files.append(records_path + f)
 
-        records_path = project_path + '/' + key + '/'
-        all_files = os.listdir(records_path)
-        files = []
-        for f in all_files:
-            if f.endswith(".parquet"):
-                files.append(records_path + f)
+    # limit
+    #files = [files[0]]
 
-        # limit
-        #files = [files[0]]
+    df=spark.read.parquet(*files)
 
-        df=spark.read.parquet(*files)
+    total_tasks = df.count()
+    logger.info(f"Number of imported samples: {total_tasks}")
+    dropped_tasks = df.where(df.end_time == -1).count()
+    logger.info(f"Number of dropped tasks: {dropped_tasks}")
+    delayed_tasks = df.where(df.end2end_delay > df.delay_bound).count()
+    logger.info(f"Number of delayed tasks: {delayed_tasks}")
 
-        total_tasks = df.count()
-        logger.info(f"Number of imported samples: {total_tasks}")
-        dropped_tasks = df.where(df.end_time == -1).count()
-        logger.info(f"Number of dropped tasks: {dropped_tasks}")
-        delayed_tasks = df.where(df.end2end_delay > df.delay_bound).count()
-        logger.info(f"Number of delayed tasks: {delayed_tasks}")
+    results.loc[len(results)] = [ str(bench_params[folder_name]), (dropped_tasks+delayed_tasks)/total_tasks ]
 
-        res_arr.append((dropped_tasks+delayed_tasks)/total_tasks)
-
-    results.loc[len(results)] = [ str(bench_params[folder_name]), 1.00-bench_params[folder_name], *res_arr ]
-
-ax = results.plot(x="delay target", y=["no-aqm",*list(records_paths.values())], kind="bar")
-ax.set_yscale('log')
-ax.set_yticks(1.00 - np.array(list(bench_params.values())))
+ax = results.plot(x="parameter set", y=["result"], kind="bar")
+#ax.set_yscale('log')
+#ax.set_yticks(1.00 - np.array(list(bench_params.values())))
 ax.set_xlabel('Target delay')
 ax.set_ylabel('Failed tasks ratio')
 # draw the legend
 ax.legend()
 ax.grid()
 plt.tight_layout()
-plt.savefig('result_new.png')
+plt.savefig('codel_tuning.png')
 
 
 exit(0)

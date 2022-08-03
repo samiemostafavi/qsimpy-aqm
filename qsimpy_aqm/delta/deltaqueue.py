@@ -91,6 +91,9 @@ class DeltaQueue(SimpleQueue):
                 s2 = self.calc_expected_success(df_dropped)
                 delta =  s2 - s1 
                 if delta > 0:
+                    if self._debug:
+                        print(f"DROP: delta:{delta}, s_dropped: {s2}, s_original:{s1}, len(s):{len(df_original)}")
+                        print(df_original)
                     d_task = (yield self._store.get())
                     # drop the task
                     self.attributes['tasks_dropped'] += 1

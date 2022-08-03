@@ -6,9 +6,8 @@ import polars as pl
 import time
 
 import qsimpy
-from pr3d.de import ConditionalGammaMixtureEVM, ConditionalGaussianMM
 from qsimpy.random import Deterministic, RandomProcess
-from qsimpy_aqm.delta import DeltaQueue, PredictorAddresses
+from qsimpy_aqm.codel import CodelQueue
 
 from arrivals import HeavyTailGamma
 
@@ -27,7 +26,7 @@ source = qsimpy.TimedSource(
     name='start-node',
     arrival_rp=arrival,
     task_type='0',
-    delay_bound=131.0544,
+    delay_bound=57.15, #57.15 p8 #131.0544 p999
 )
 model.add_entity(source)
 
@@ -43,19 +42,11 @@ service = HeavyTailGamma(
     batch_size = 1000000,
 )
 
-#queue = qsimpy.SimpleQueue(
-#    name='queue',
-#    service_rp= service,
-#    #queue_limit=10, #None
-#)
-
-queue = DeltaQueue(
+queue = CodelQueue(
     name='queue',
     service_rp= service,
-    predictor_addresses=PredictorAddresses(
-        h5_address = 'predictors/gmevm_model_0.h5',
-        json_address = 'predictors/gmevm_model_0.json',
-    ),
+    interval = 20*15,
+    target = 20,
 )
 model.add_entity(queue)
 
@@ -150,10 +141,10 @@ df = df_finished
 # plot end-to-end delay profile
 sns.set_style('darkgrid')
 sns.displot(df['end2end_delay'],kde=True)
-plt.savefig('end2end_aqm.png')
+plt.savefig('end2end_codelaqm.png')
 
 sns.displot(df['service_delay'],kde=True)
-plt.savefig('service_delay_aqm.png')
+plt.savefig('service_delay_codelaqm.png')
 
 sns.displot(df['queue_delay'],kde=True)
-plt.savefig('queue_delay_aqm.png')
+plt.savefig('queue_delay_codeaqm.png')

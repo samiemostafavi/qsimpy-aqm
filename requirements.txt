@@ -26,3 +26,4 @@ polars==0.13.51
 dill
 pydantic==1.9.1
 deepdiff
+stable-baselines3==1.6.0

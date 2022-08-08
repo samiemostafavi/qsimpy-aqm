@@ -48,6 +48,7 @@ bench_params = { # target_delay
 records_paths = { 
     'records_codel': 'codel',
     'records_delta': 'delta',
+    'records_oo': 'offline-optimum',
 }
 
 results = pd.DataFrame(columns=["delay target","no-aqm",*list(records_paths.values())])
@@ -95,7 +96,7 @@ ax.set_ylabel('Failed tasks ratio')
 ax.legend()
 ax.grid()
 plt.tight_layout()
-plt.savefig('result_new.png')
+plt.savefig('result_new2.png')
 
 
 exit(0)

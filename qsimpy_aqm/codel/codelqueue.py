@@ -1,36 +1,31 @@
 from __future__ import annotations
 
-import simpy
-import pandas as pd
-import numpy as np
-import json
-from typing import Dict, Callable
-from pydantic import PrivateAttr
 import math
 
-from qsimpy.core import Task, Entity, Model
+import numpy as np
+import simpy
+from pydantic import PrivateAttr
 from qsimpy import SimpleQueue
+from qsimpy.core import Model, Task
 
-import traceback
-import logging
 
 class CodelQueue(SimpleQueue):
-    """ Models a FIFO queue with Codel AQM
-    """
-    type : str = 'codelqueue'
-    interval : np.float64 
-    target : np.float64 
+    """Models a FIFO queue with Codel AQM"""
 
-    _dropping : bool = PrivateAttr()
-    _next_drop_time : np.float64 = PrivateAttr()
-    _count : int = PrivateAttr()
-    _lastcount : int = PrivateAttr()
-    _latest_queue_delay : np.float64 = PrivateAttr()
-    _first_above_time : np.float64 = PrivateAttr()
-    _entrance_timestamps : list = PrivateAttr()
+    type: str = "codelqueue"
+    interval: np.float64
+    target: np.float64
+
+    _dropping: bool = PrivateAttr()
+    _next_drop_time: np.float64 = PrivateAttr()
+    _count: int = PrivateAttr()
+    _lastcount: int = PrivateAttr()
+    _latest_queue_delay: np.float64 = PrivateAttr()
+    _first_above_time: np.float64 = PrivateAttr()
+    _entrance_timestamps: list = PrivateAttr()
 
     def prepare_for_run(self, model: Model, env: simpy.Environment, debug: bool):
-        super().prepare_for_run(model,env,debug)
+        super().prepare_for_run(model, env, debug)
 
         self._dropping = False
         self._next_drop_time = 0
@@ -41,7 +36,7 @@ class CodelQueue(SimpleQueue):
         self._entrance_timestamps = []
 
     def control_law_codel(self, time, count):
-        next_drop_time = time + self.interval/math.sqrt(count)
+        next_drop_time = time + self.interval / math.sqrt(count)
         return next_drop_time
 
     def dequeue_codel_internal(self):
@@ -79,16 +74,18 @@ class CodelQueue(SimpleQueue):
                 # next.  If the dequeue doesn't take us out of dropping
                 # state, schedule the next drop.
                 if (self._env.now >= self._next_drop_time) and (self._dropping):
-                    drop = True # drop
-                    self._count = self._count+1
+                    drop = True  # drop
+                    self._count = self._count + 1
                     # schedule the next drop
-                    self._next_drop_time = self.control_law_codel(self._next_drop_time, self._count)
-                
+                    self._next_drop_time = self.control_law_codel(
+                        self._next_drop_time, self._count
+                    )
+
         elif ok_to_drop:
-            # If we get here, we were not inthe drop state. But we are entering it
-            # The 'ok_to_drop' means that the sojourn_time got higher than 'self.target' 
+            # If we get here, we were not in the drop state. But we are entering it
+            # The 'ok_to_drop' means that the sojourn_time got higher than 'self.target'
             # for at least 'self.interval' duration, so we enter dropping state.
-            drop = True # drop
+            drop = True  # drop
             self._dropping = True
 
             # If min went above TARGET close to when it last went
@@ -102,9 +99,11 @@ class CodelQueue(SimpleQueue):
             # tested.
             delta = self._count - self._lastcount
             self._count = 1
-            if (delta > 1.00) and ( (self._env.now - self._next_drop_time) < (16.00*self.interval) ):
+            if (delta > 1.00) and (
+                (self._env.now - self._next_drop_time) < (16.00 * self.interval)
+            ):
                 self._count = delta
-            
+
             self._next_drop_time = self.control_law_codel(self._env.now, self._count)
             self._lastcount = self._count
 
@@ -119,43 +118,45 @@ class CodelQueue(SimpleQueue):
             # CoDel dequeue procedure
             drop = self.dequeue_codel()
             if drop:
-                d_task = (yield self._store.get())
+                d_task = yield self._store.get()
                 # drop the task
-                self.attributes['tasks_dropped'] += 1
+                self.attributes["tasks_dropped"] += 1
 
                 # pop the oldest timestamp because that corresponds to the head task
-                self._latest_queue_delay = self._env.now - self._entrance_timestamps.pop(0)
+                self._latest_queue_delay = (
+                    self._env.now - self._entrance_timestamps.pop(0)
+                )
 
                 if self.drop is not None:
                     self._drop.put(d_task)
 
                 # start over
                 continue
-            
-            #server takes the head task from the queue
-            task = (yield self._store.get())
-            self.attributes['queue_length'] -= 1
+
+            # server takes the head task from the queue
+            task = yield self._store.get()
+            self.attributes["queue_length"] -= 1
 
             # calculate the latest queuing_delay
             # pop the oldest timestamp because that corresponds to the head task
             self._latest_queue_delay = self._env.now - self._entrance_timestamps.pop(0)
 
             # EVENT service_start
-            task = self.add_records(task=task, event_name='service_start')
+            task = self.add_records(task=task, event_name="service_start")
 
-            # get a service duration 
-            self.attributes['is_busy'] = True
+            # get a service duration
+            self.attributes["is_busy"] = True
             new_service_duration = self.service_rp.sample()
-            self.attributes['last_service_duration'] = new_service_duration
-            self.attributes['last_service_time'] = self._env.now
+            self.attributes["last_service_duration"] = new_service_duration
+            self.attributes["last_service_time"] = self._env.now
 
             # wait until the task is served
             yield self._env.timeout(new_service_duration)
-            self.attributes['is_busy'] = False
+            self.attributes["is_busy"] = False
 
             # EVENT service_end
-            task = self.add_records(task=task, event_name='service_end')
-            self.attributes['tasks_completed'] += 1
+            task = self.add_records(task=task, event_name="service_end")
+            self.attributes["tasks_completed"] += 1
 
             if self._debug:
                 print(task)
@@ -164,33 +165,31 @@ class CodelQueue(SimpleQueue):
             if self.out is not None:
                 self._out.put(task)
 
-    def put(self, 
-            task: Task
-        ) -> None :
+    def put(self, task: Task) -> None:
         """
         queuing tasks
         """
 
         # increase the received counter
-        self.attributes['tasks_received'] += 1
+        self.attributes["tasks_received"] += 1
 
         # EVENT task_reception
-        task = self.add_records(task=task, event_name='task_reception')
+        task = self.add_records(task=task, event_name="task_reception")
 
         # check if we need to drop the task due to buffer size limit
         drop = False
-        if self.queue_limit is not None:       
-            if self.attributes['queue_length']+1 >= self.queue_limit:
+        if self.queue_limit is not None:
+            if self.attributes["queue_length"] + 1 >= self.queue_limit:
                 drop = True
 
         if drop:
             # drop the task
-            self.attributes['tasks_dropped'] += 1
+            self.attributes["tasks_dropped"] += 1
             if self.drop is not None:
                 self._drop.put(task)
         else:
             # store the task in the queue
             # records the timestamp for calculating the queuing delay
             self._entrance_timestamps.append(self._env.now)
-            self.attributes['queue_length'] += 1
+            self.attributes["queue_length"] += 1
             self._store.put(task)

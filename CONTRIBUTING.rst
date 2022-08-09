@@ -1,0 +1,113 @@
+.. highlight:: shell
+
+============
+Contributing
+============
+
+Contributions are welcome, and they are greatly appreciated! Every
+little bit helps, and credit will always be given.
+
+You can contribute in many ways:
+
+Types of Contributions
+----------------------
+
+Report Bugs
+~~~~~~~~~~~
+
+Report bugs at https://github.com/samiemostafavi/qsimpy-aqm/issues.
+
+If you are reporting a bug, please include:
+
+* Your operating system name and version.
+* Any details about your local setup that might be helpful in troubleshooting.
+* Detailed steps to reproduce the bug.
+
+Fix Bugs
+~~~~~~~~
+
+Look through the GitHub issues for bugs. Anything tagged with "bug"
+and "help wanted" is open to whoever wants to implement it.
+
+Implement Features
+~~~~~~~~~~~~~~~~~~
+
+Look through the GitHub issues for features. Anything tagged with "enhancement"
+and "help wanted" is open to whoever wants to implement it. Those that are
+tagged with "first-timers-only" is suitable for those getting started in open-source software.
+
+Write Documentation
+~~~~~~~~~~~~~~~~~~~
+
+QSIMPY-AQM could always use more documentation, whether as part of the
+official docs, in docstrings, or even on the web in blog posts,
+articles, and such.
+
+Submit Feedback
+~~~~~~~~~~~~~~~
+
+The best way to send feedback is to file an issue at https://github.com/samiemostafavi/qsimpy-aqm/issues.
+
+If you are proposing a feature:
+
+* Explain in detail how it would work.
+* Keep the scope as narrow as possible, to make it easier to implement.
+* Remember that this is a volunteer-driven project, and that contributions
+  are welcome :)
+
+Get Started!
+------------
+
+Ready to contribute? Here's how to set up `qsimpy-aqm` for local development.
+
+1. Fork the `qsimpy-aqm` repo on GitHub.
+2. Clone your fork locally::
+
+    $ git clone git@github.com:your_name_here/qsimpy-aqm.git
+
+3. Install your local copy into a virtualenv. Assuming you have virtualenv installed, this is how you set up your fork for local development::
+
+    $ cd qsimpy-aqm/
+    $ python -m virtualenv --python=python3.9.0 ./venv
+    $ pip install .
+
+4. Create a branch for local development::
+
+    $ git checkout -b name-of-your-bugfix-or-feature
+
+   Now you can make your changes locally.
+
+5. When you're done making changes, check that your changes pass black, codespell, flake8, and isort checks. To do that, add pre-commit hooks::
+
+    $ pre-commit autoupdate
+    $ pre-commit install
+    $ pre-commit run --all-files
+
+6. Commit your changes and push your branch to GitHub::
+
+    $ git add .
+    $ git commit -m "Your detailed description of your changes."
+    $ git push origin name-of-your-bugfix-or-feature
+
+   In brief, commit messages should follow these conventions:
+       
+   * Always contain a subject line which briefly describes the changes made. For example "Update CONTRIBUTING.rst".
+   * Subject lines should not exceed 50 characters.
+   * The commit body should contain context about the change - how the code worked before, how it works now and why you decided to solve the issue in the way you did.
+
+   More detail on commit guidelines can be found at https://chris.beams.io/posts/git-commit
+
+7. Submit a pull request through the GitHub website.
+
+Pull Request Guidelines
+-----------------------
+
+Before you submit a pull request, check that it meets these guidelines:
+
+1. The pull request should include tests.
+2. If the pull request adds functionality, the docs should be updated. Put
+   your new functionality into a function with a docstring, and add the
+   feature to the list in README.rst.
+3. The pull request should work for 3.9 and above. Check
+   https://travis-ci.com/samiemostafavi/qsimpy-aqm/pull_requests
+   and make sure that the tests pass for all supported Python versions.

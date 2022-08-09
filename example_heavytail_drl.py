@@ -8,7 +8,7 @@ import seaborn as sns
 from qsimpy.random import Deterministic
 
 from arrivals import HeavyTailGamma
-from qsimpy_aqm.oo import OfflineOptimumQueue
+from qsimpy_aqm.drl import DRLQueue
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes
@@ -41,7 +41,7 @@ service = HeavyTailGamma(
     batch_size=1000000,
 )
 
-queue = OfflineOptimumQueue(
+queue = DRLQueue(
     name="queue",
     service_rp=service,
 )
@@ -118,6 +118,15 @@ model.set_task_records(
 
 # prepare for run
 model.prepare_for_run(debug=False)
+
+# Train DeepRL agent
+queue._training = True  # turn on training
+queue._rl_model.learn(total_timesteps=1000)
+queue.save(address="ppo_queue.zip")
+queue._training = False  # turn off training
+
+
+exit(0)
 
 # Run!
 start = time.time()

@@ -135,6 +135,7 @@ sparkcache/
 *.parquet
 *.png
 *.jpg
+*.zip
 results
 projects
 predictors

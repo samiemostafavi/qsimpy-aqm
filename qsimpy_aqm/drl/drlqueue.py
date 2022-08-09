@@ -8,91 +8,8 @@ from gym import spaces
 from pydantic import PrivateAttr
 from qsimpy import SimpleQueue
 from qsimpy.core import Model, Task
-
-
-class QueueEnv(gym.Env):
-    """
-    Custom Environment that follows gym interface.
-    This is a simple env where connects to MATLAB through a shared memory interface.
-    It is an implementation of this paper "Deep Reinforcement Learning Based Active Queue
-    Management for IoT Networks" by Kim et al.
-    """
-
-    # Define constants for clearer code
-    PASS = 0
-    DROP = 1
-
-    def __init__(self):
-        super(QueueEnv, self).__init__()
-
-        # Define action and observation space
-        # They must be gym.spaces objects
-        # Using discrete actions, we have two: { drop , pass }
-        n_actions = 2
-        self.action_space = spaces.Discrete(n_actions)
-
-        # The observation will be the { number of packets L, dequeue rate R_deq, and queuing delay d }
-        # this can be described both by Discrete and Box space
-        # number of packets L, dequeue rate R_deq, queuing delay d
-        self.observation_space = spaces.Box(
-            low=0, high=np.inf, dtype=np.float32, shape=(3,)
-        )
-
-    def reset(self):
-        """
-        Important: the observation must be a Tuple of numpy arrays
-        each box represents a numpy array
-        :return: Tuple(np.array)
-        """
-        # Initialize the agent
-        self.backlog = 0
-        self.dequeue_rate = 0
-        self.queue_delay = 0
-        # here we convert each number to its corresponding type to make it more general
-        # (in case we want to use continuous actions)
-        return np.array([self.backlog, self.dequeue_rate, self.queue_delay]).astype(
-            np.float32
-        )
-
-    def step(self, action):
-        if (action != self.DROP) and (action != self.PASS):
-            raise ValueError(
-                "Received invalid action={} which is not part of the action space".format(
-                    action
-                )
-            )
-
-        # send the action
-        action
-
-        # prepare observations and read the reward
-        self.backlog
-        self.dequeue_rate
-        self.queue_delay
-        reward = 1
-
-        # Account for the boundaries of the grid
-        self.backlog = np.clip(self.backlog, 0, np.inf)
-        self.dequeue_rate = np.clip(self.dequeue_rate, 0, np.inf)
-        self.cur_delay = np.clip(self.queue_delay, 0, np.inf)
-
-        # The experiment never finishes
-        done = False
-
-        # Optionally we can pass additional info, we are not using that for now
-        info = {}
-
-        return (
-            np.array([self.backlog, self.dequeue_rate, self.queue_delay]).astype(
-                np.float32
-            ),
-            reward,
-            done,
-            info,
-        )
-
-    def close(self):
-        pass
+from stable_baselines3 import PPO
+from stable_baselines3.ppo.policies import MlpPolicy
 
 
 class DRLQueue(SimpleQueue):
@@ -104,15 +21,35 @@ class DRLQueue(SimpleQueue):
     """
 
     type: str = "drlqueue"
+    rl_model_address: str = ""
 
     _entrance_timestamps: list = PrivateAttr()
-    _queue_env: QueueEnv = PrivateAttr()
+    _latest_queue_delay: np.float64 = PrivateAttr()
+    _aqm_drop: bool = PrivateAttr()
+    _observations: tuple = PrivateAttr()
+    _gym_env: QueueGymEnv = PrivateAttr()
+    _rl_model = PrivateAttr()
+    _training: bool = PrivateAttr()
 
     def prepare_for_run(self, model: Model, env: simpy.Environment, debug: bool):
         super().prepare_for_run(model, env, debug)
 
         self._entrance_timestamps = []
-        self._queue_env = QueueEnv()
+        self._latest_queue_delay = 0
+        self._aqm_drop = False
+        self._observations = ()
+        self._training = False
+
+        self._observations = tuple(np.random.randint(256, size=4))
+
+        self._gym_env = QueueGymEnv(self)
+        if self.rl_model_address == "":
+            self._rl_model = PPO(MlpPolicy, self._gym_env, verbose=0)
+        else:
+            self._rl_model = PPO.load(self.rl_model_address)
+
+    def save(self, address) -> None:
+        self._rl_model.save(address)
 
     def run(self) -> None:
         """
@@ -121,7 +58,13 @@ class DRLQueue(SimpleQueue):
         while True:
 
             # DRL dequeue procedure
-            drop = self.dequeue_drl()
+            if not self._training:
+                # _states are only useful when using LSTM policies
+                action, _states = self._rl_model.predict(self._observations)
+                self.set_action(action)
+
+            drop = self._action
+
             if drop:
                 d_task = yield self._store.get()
                 # drop the task
@@ -131,6 +74,8 @@ class DRLQueue(SimpleQueue):
                 self._latest_queue_delay = (
                     self._env.now - self._entrance_timestamps.pop(0)
                 )
+                # record RL observations
+                self._observations = tuple(np.random.randint(256, size=4))
 
                 if self.drop is not None:
                     self._drop.put(d_task)
@@ -160,6 +105,8 @@ class DRLQueue(SimpleQueue):
             self.attributes["is_busy"] = False
 
             # EVENT service_end
+            # record RL observations
+            self._observations = tuple(np.random.randint(256, size=4))
             task = self.add_records(task=task, event_name="service_end")
             self.attributes["tasks_completed"] += 1
 
@@ -198,3 +145,123 @@ class DRLQueue(SimpleQueue):
             self._entrance_timestamps.append(self._env.now)
             self.attributes["queue_length"] += 1
             self._store.put(task)
+
+    def set_action(self, action):
+        if action == 1:
+            self._aqm_drop = True
+        elif action == 0:
+            self._aqm_drop = False
+        else:
+            raise Exception(f"wrong action set {action}")
+
+    def get_observations(self):
+        return self._observations
+
+
+class QueueGymEnv(gym.Env):
+    """
+    Custom Environment that follows gym interface.
+    This is a simple env where connects to MATLAB through a shared memory interface.
+    It is an implementation of this paper "Deep Reinforcement Learning Based Active Queue
+    Management for IoT Networks" by Kim et al.
+    """
+
+    # Define constants for clearer code
+    PASS = 0
+    DROP = 1
+
+    def __init__(self, queue: DRLQueue):
+        super(QueueGymEnv, self).__init__()
+
+        # set the QSimpy queue
+        self._drl_queue = queue
+
+        # Define action and observation space
+        # They must be gym.spaces objects
+        # Using discrete actions, we have two: { drop , pass }
+        n_actions = 2
+        self.action_space = spaces.Discrete(n_actions)
+
+        # The observation will be the { number of packets L, dequeue rate R_deq, and queuing delay d }
+        # this can be described both by Discrete and Box space
+        # number of packets L, dequeue rate R_deq, queuing delay d
+        self.observation_space = spaces.Box(
+            low=0, high=np.inf, dtype=np.float32, shape=(3,)
+        )
+
+    def reset(self):
+        """
+        Important: the observation must be a Tuple of numpy arrays
+        each box represents a numpy array
+        :return: Tuple(np.array)
+        """
+        # Initialize the agent
+        self.backlog = 0
+        self.dequeue_rate = 0
+        self.queue_delay = 0
+
+        # here we convert each number to its corresponding type to make it more general
+        # (in case we want to use continuous actions)
+        return np.array([self.backlog, self.dequeue_rate, self.queue_delay]).astype(
+            np.float32
+        )
+
+    def step(self, action):
+        if (action != self.DROP) and (action != self.PASS):
+            raise ValueError(
+                "Received invalid action={} which is not part of the action space".format(
+                    action
+                )
+            )
+
+        # The experiment finishes
+        done = False
+
+        # send the action
+        self._drl_queue.set_action(action)
+        tasks_completed_old = self._drl_queue.attributes["tasks_completed"]
+        tasks_dropped_old = self._drl_queue.attributes["tasks_dropped"]
+
+        while True:
+            # wait until one task get processed
+            try:
+                self._drl_queue._env.step()
+                if (
+                    self._drl_queue.attributes["tasks_completed"]
+                    == tasks_completed_old + 1
+                ) or (
+                    self._drl_queue.attributes["tasks_dropped"] == tasks_dropped_old + 1
+                ):
+                    # prepare observations and read the reward
+                    (
+                        self.backlog,
+                        self.dequeue_rate,
+                        self.queue_delay,
+                        reward,
+                    ) = self._drl_queue.get_observations()
+                    break
+            except Exception as ex:
+                # means there is no more events to process
+                print(ex)
+                done = True
+                break
+
+        # Account for the boundaries of the grid
+        self.backlog = np.clip(self.backlog, 0, np.inf)
+        self.dequeue_rate = np.clip(self.dequeue_rate, 0, np.inf)
+        self.queue_delay = np.clip(self.queue_delay, 0, np.inf)
+
+        # Optionally we can pass additional info, we are not using that for now
+        info = {}
+
+        return (
+            np.array([self.backlog, self.dequeue_rate, self.queue_delay]).astype(
+                np.float32
+            ),
+            reward,
+            done,
+            info,
+        )
+
+    def close(self):
+        pass

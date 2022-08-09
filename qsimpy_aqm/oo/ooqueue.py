@@ -95,8 +95,7 @@ class OfflineOptimumQueue(SimpleQueue):
                     self._env.now - df_original["start_time"]
                 )
                 if self.dequeue_oo(df_original):
-                    # if self._debug:
-                    if True:
+                    if self._debug:
                         # print(f"DROP: delta:{delta}, s_dropped: {s2}, s_original:{s1}, len(s):{len(df_original)}")
                         print(df_original)
                     d_task = yield self._store.get()

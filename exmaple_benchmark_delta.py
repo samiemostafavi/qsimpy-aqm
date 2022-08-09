@@ -199,7 +199,7 @@ if __name__ == "__main__":
 
     # project folder setting
     p = Path(__file__).parents[0]
-    project_path = str(p) + "/projects/delta_benchmark/"
+    project_path = str(p) + "/projects/delta_new_benchmark/"
 
     # simulation parameters
     # quantile values of no-aqm model with p1 as gpd_concentration

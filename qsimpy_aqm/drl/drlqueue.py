@@ -69,10 +69,10 @@ class QueueEnv(gym.Env):
         action
 
         # prepare observations and read the reward
-        self.backlog = 
-        self.dequeue_rate =
-        self.queue_delay =
-        reward =
+        self.backlog
+        self.dequeue_rate
+        self.queue_delay
+        reward
 
         # Account for the boundaries of the grid
         self.backlog = np.clip(self.backlog, 0, np.inf)

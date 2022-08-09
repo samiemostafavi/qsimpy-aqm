@@ -100,6 +100,10 @@ class OfflineOptimumQueue(SimpleQueue):
                 # obtain all tasks delay budgets
                 df_original['delay_budget'] = df_original['delay_bound'] - (self._env.now - df_original['start_time'])
                 if self.dequeue_oo(df_original):
+                    #if self._debug:
+                    if True:
+                        #print(f"DROP: delta:{delta}, s_dropped: {s2}, s_original:{s1}, len(s):{len(df_original)}")
+                        print(df_original)
                     d_task = (yield self._store.get())
                     # drop the task
                     self.attributes['tasks_dropped'] += 1

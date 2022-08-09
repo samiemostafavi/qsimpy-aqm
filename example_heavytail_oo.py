@@ -116,7 +116,7 @@ model.prepare_for_run(debug=False)
 
 # Run!
 start = time.time()
-model.env.run(until=100000)
+model.env.run(until=10000)
 end = time.time()
 print("Run finished in {0} seconds".format(end - start))
 

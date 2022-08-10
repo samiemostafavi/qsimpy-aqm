@@ -16,8 +16,6 @@ class DRLQueue(SimpleQueue):
     """
     Models a FIFO queue with Deep Reinforcement Learning (DRL) AQM
     It is a custom OpenAI gym environment that follows gym interface.
-    This specific method implements "Deep Reinforcement Learning Based Active Queue
-    Management for IoT Networks" by Kim et al.
     """
 
     type: str = "drlqueue"
@@ -39,7 +37,6 @@ class DRLQueue(SimpleQueue):
         self._aqm_drop = False
         self._observations = ()
         self._training = False
-
         self._observations = tuple(np.random.randint(256, size=4))
 
         self._gym_env = QueueGymEnv(self)
@@ -47,6 +44,11 @@ class DRLQueue(SimpleQueue):
             self._rl_model = PPO(MlpPolicy, self._gym_env, verbose=0)
         else:
             self._rl_model = PPO.load(self.rl_model_address)
+
+    def learn(self, total_timesteps):
+        self._training = True  # turn on training
+        self._rl_model.learn(total_timesteps=total_timesteps)
+        self._training = False  # turn off training
 
     def save(self, address) -> None:
         self._rl_model.save(address)
@@ -64,7 +66,6 @@ class DRLQueue(SimpleQueue):
                 self.set_action(action)
 
             drop = self._action
-
             if drop:
                 d_task = yield self._store.get()
                 # drop the task

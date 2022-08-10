@@ -8,11 +8,11 @@ import seaborn as sns
 from qsimpy.random import Deterministic
 
 from arrivals import HeavyTailGamma
-from qsimpy_aqm.drl import DRLQueue
+from qsimpy_aqm.dqn import DQNQueue
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes
-model = qsimpy.Model(name="test delta aqm")
+model = qsimpy.Model(name="test dqn aqm")
 
 # Create a source
 # arrival process deterministic
@@ -41,9 +41,12 @@ service = HeavyTailGamma(
     batch_size=1000000,
 )
 
-queue = DRLQueue(
+queue = DQNQueue(
     name="queue",
     service_rp=service,
+    t_interval=10,
+    delta=0.05,
+    delay_ref=55,
 )
 model.add_entity(queue)
 
@@ -120,14 +123,27 @@ model.set_task_records(
 model.prepare_for_run(debug=False)
 
 # Train DeepRL agent
-queue.learn(total_timesteps=1000)
-queue.save(address="ppo_queue.zip")
+print("Training RL agent")
+start = time.time()
+queue.learn(total_timesteps=10000)
+end = time.time()
+queue.save(address="ppo_dqn_queue.zip")
+print("Training finished in {0} seconds".format(end - start))
 
-exit(0)
+print("Source generated {0} tasks".format(source.get_attribute("tasks_generated")))
+print(
+    "Queue completed {0}, dropped {1}".format(
+        queue.get_attribute("tasks_completed"),
+        queue.get_attribute("tasks_dropped"),
+    )
+)
+print(" Sink received {0} tasks".format(sink.get_attribute("tasks_received")))
 
 # Run!
 start = time.time()
-model.env.run(until=10000)
+queue.rl_model_address = "ppo_dqn_queue.zip"
+model.prepare_for_run(debug=False, clean=True)
+model.env.run(until=model.env.now + 100000)
 end = time.time()
 print("Run finished in {0} seconds".format(end - start))
 

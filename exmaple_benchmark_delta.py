@@ -9,6 +9,7 @@ import numpy as np
 # https://stackoverflow.com/questions/39465503/cuda-error-out-of-memory-in-tensorflow
 # The problem is, that Tensorflow is greedy in allocating all available VRAM. That causes issues when multi processes start using CUDA
 import tensorflow as tf
+from loguru import logger
 
 # To make tensorflow and CUDA work with multiprocessing, this article really helped:
 # https://sefiks.com/2019/03/20/tips-and-tricks-for-gpu-and-multiprocessing-in-tensorflow/
@@ -63,8 +64,8 @@ def create_run_graph(params):
         name="queue",
         service_rp=service,
         predictor_addresses=PredictorAddresses(
-            h5_address="predictors/gmevm_model_0.h5",
-            json_address="predictors/gmevm_model_0.json",
+            h5_address="predictors/gmevm_model.h5",
+            json_address="predictors/gmevm_model.json",
         ),
     )
     model.add_entity(queue)
@@ -81,19 +82,6 @@ def create_run_graph(params):
         df["end2end_delay"] = df["end_time"] - df["start_time"]
         df["service_delay"] = df["end_time"] - df["service_time"]
         df["queue_delay"] = df["service_time"] - df["queue_time"]
-        # process time in service
-        df["time_in_service"] = df.apply(
-            lambda row: (row.start_time - row.last_service_time)
-            if row.queue_is_busy
-            else None,
-            axis=1,
-        ).astype("float64")
-        # process longer_delay_prob here for benchmark purposes
-        df["longer_delay_prob"] = np.float64(1.00) - service.cdf(
-            y=df["time_in_service"].to_numpy(),
-        )
-        df["longer_delay_prob"] = df["longer_delay_prob"].fillna(np.float64(0.00))
-        del df["last_service_time"], df["queue_is_busy"]
         return df
 
     sink._post_process_fn = user_fn
@@ -122,8 +110,6 @@ def create_run_graph(params):
                     "task_generation": {
                         queue.name: {
                             "queue_length": "queue_length",
-                            "last_service_time": "last_service_time",
-                            "is_busy": "queue_is_busy",
                         },
                     },
                 },
@@ -145,7 +131,7 @@ def create_run_graph(params):
     # report timesteps
     def report_state(time_step):
         yield model.env.timeout(time_step)
-        print(
+        logger.info(
             f"{params['run_number']}: Simulation progress {100.0*float(model.env.now)/float(params['until'])}% done"
         )
 
@@ -158,21 +144,23 @@ def create_run_graph(params):
     start = time.time()
     model.env.run(until=params["until"])
     end = time.time()
-    print("{0}: Run finished in {1} seconds".format(params["run_number"], end - start))
+    logger.info(
+        "{0}: Run finished in {1} seconds".format(params["run_number"], end - start)
+    )
 
-    print(
+    logger.info(
         "{0}: Source generated {1} tasks".format(
             params["run_number"], source.get_attribute("tasks_generated")
         )
     )
-    print(
+    logger.info(
         "{0}: Queue completed {1}, dropped {2}".format(
             params["run_number"],
             queue.get_attribute("tasks_completed"),
             queue.get_attribute("tasks_dropped"),
         )
     )
-    print(
+    logger.info(
         "{0}: Sink received {1} tasks".format(
             params["run_number"], sink.get_attribute("tasks_received")
         )
@@ -188,7 +176,7 @@ def create_run_graph(params):
 
     df.to_parquet(params["records_path"] + f"{params['run_number']}_records.parquet")
 
-    print(
+    logger.info(
         "{0}: Data processing finished in {1} seconds".format(
             params["run_number"], end - start
         )
@@ -214,8 +202,8 @@ if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
 
     # 4 x 4, until 1000000 took 7 hours
-    sequential_runs = 4  # 4
-    parallel_runs = 4  # 18
+    sequential_runs = 2  # 2  # 4
+    parallel_runs = 8  # 8  # 18
     for j in range(sequential_runs):
 
         processes = []
@@ -223,7 +211,7 @@ if __name__ == "__main__":
 
             # parameter figure out
             keys = list(bench_params.keys())
-            key_this_run = keys[j % len(keys)]
+            key_this_run = keys[i % len(keys)]
 
             # create and prepare the results directory
             results_path = project_path + key_this_run + "_results/"
@@ -238,7 +226,7 @@ if __name__ == "__main__":
                 "service_seed": 120034 + i * 200202 + j * 20111,
                 "target_delay": bench_params[key_this_run],  # tail decays
                 "until": int(
-                    1000000
+                    1000000  # 00
                 ),  # 10M timesteps takes 1000 seconds, generates 900k samples
                 "report_state": 0.05,  # 0.05 # report when 10%, 20%, etc progress reaches
             }

@@ -35,7 +35,7 @@ service = HeavyTailGamma(
     seed=120034,
     gamma_concentration=5,
     gamma_rate=0.5,
-    gpd_concentration=0.1,
+    gpd_concentration=0.1,  # p9
     threshold_qnt=0.8,
     dtype="float64",
     batch_size=1000000,
@@ -50,9 +50,10 @@ service = HeavyTailGamma(
 queue = DeltaQueue(
     name="queue",
     service_rp=service,
+    debug_drops=True,
     predictor_addresses=PredictorAddresses(
-        h5_address="predictors/gmevm_model_0.h5",
-        json_address="predictors/gmevm_model_0.json",
+        h5_address="predictors/gmevm_model.h5",
+        json_address="predictors/gmevm_model.json",
     ),
 )
 model.add_entity(queue)
@@ -131,7 +132,7 @@ model.prepare_for_run(debug=False)
 
 # Run!
 start = time.time()
-model.env.run(until=10000)  # 100000
+model.env.run(until=100000)  # 100000
 end = time.time()
 print("Run finished in {0} seconds".format(end - start))
 
@@ -145,6 +146,11 @@ print(
 print(" Sink received {0} tasks".format(sink.get_attribute("tasks_received")))
 
 start = time.time()
+
+# delta troubleshoot
+if queue.debug_drops:
+    with open("delta_debug_big.json", "w") as json_file:
+        json_file.write(queue._debug_json)
 
 # Process the collected data
 df = sink.received_tasks

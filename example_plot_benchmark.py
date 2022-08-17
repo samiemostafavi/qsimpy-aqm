@@ -104,7 +104,7 @@ ax.set_ylabel("Failed tasks ratio")
 ax.legend()
 ax.grid()
 plt.tight_layout()
-plt.savefig("result_new3.png")
+plt.savefig(project_folder + "result.png")
 
 
 exit(0)

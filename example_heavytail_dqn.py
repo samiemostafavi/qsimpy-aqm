@@ -45,7 +45,7 @@ queue = DQNQueue(
     name="queue",
     service_rp=service,
     t_interval=10,
-    delta=0.05,
+    delta=0.9,
     delay_ref=55,
 )
 model.add_entity(queue)
@@ -125,7 +125,7 @@ model.prepare_for_run(debug=False)
 # Train DeepRL agent
 print("Training RL agent")
 start = time.time()
-queue.learn(total_timesteps=10000)
+queue.learn(total_timesteps=100000)
 end = time.time()
 queue.save(address="ppo_dqn_queue.zip")
 print("Training finished in {0} seconds".format(end - start))

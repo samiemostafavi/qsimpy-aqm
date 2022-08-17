@@ -28,10 +28,13 @@ class DeltaQueue(SimpleQueue):
     """Models a FIFO queue with Delta AQM"""
 
     type: str = "deltaqueue"
+    predictor_addresses: PredictorAddresses
+    debug_drops: bool = False
 
     _predictor: ConditionalDensityEstimator = PrivateAttr()
     _predictor_conf: dict = PrivateAttr()
-    predictor_addresses: PredictorAddresses
+    _debug_json: str = PrivateAttr()
+    _debug_list: list = PrivateAttr()
 
     def prepare_for_run(self, model: Model, env: simpy.Environment, debug: bool):
         super().prepare_for_run(model, env, debug)
@@ -56,21 +59,22 @@ class DeltaQueue(SimpleQueue):
                 h5_addr=pred_addr,
             )
 
+        if self.debug_drops:
+            self._debug_list = []
+            self._debug_json = ""
+
     def calc_expected_success(
         self,
         df: pd.DataFrame,
     ):
         df["delay_budget"] = df["delay_bound"] - (self._env.now - df["start_time"])
         df["queue_length"] = np.arange(len(df))
-        df["longer_delay_prob"] = np.ones(len(df)) * 1.00
+        # df["longer_delay_prob"] = np.ones(len(df)) * 1.00
 
         try:
-            x = np.array(
-                [
-                    np.array([x, y], dtype=np.float64)
-                    for x, y in zip(df["queue_length"], df["longer_delay_prob"])
-                ]
-            )
+            x = np.array(df["queue_length"].values)
+            x = np.expand_dims(x, axis=1)
+
             y = np.array(df["delay_budget"], dtype=np.float64)
             y = y.clip(min=0.00)
             prob, logprob, cdf = self._predictor.prob_batch(x, y)
@@ -89,7 +93,6 @@ class DeltaQueue(SimpleQueue):
         serving tasks
         """
         while True:
-
             # before popping the head of queue, Delta algorithm kicks in
             df_original = pd.DataFrame(self._store.items)
             if len(df_original) > 1:
@@ -99,11 +102,22 @@ class DeltaQueue(SimpleQueue):
                 s2 = self.calc_expected_success(df_dropped)
                 delta = s2 - s1
                 if delta > 0:
-                    if self._debug:
+                    if self.debug_drops:
                         print(
                             f"DROP: delta:{delta}, s_dropped: {s2}, s_original:{s1}, len(s):{len(df_original)}"
                         )
                         print(df_original)
+                        dict_orig = df_original[
+                            ["queue_length", "delay_budget", "success_prob"]
+                        ].to_dict()
+                        print(df_dropped)
+                        dict_drop = df_dropped[
+                            ["queue_length", "delay_budget", "success_prob"]
+                        ].to_dict()
+                        dict_both = {"orig": dict_orig, "dropped": dict_drop}
+                        self._debug_list.append(dict_both)
+                        self._debug_json = json.dumps(self._debug_list, indent=2)
+
                     d_task = yield self._store.get()
                     # drop the task
                     self.attributes["tasks_dropped"] += 1

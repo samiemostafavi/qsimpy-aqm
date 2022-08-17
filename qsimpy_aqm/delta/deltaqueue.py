@@ -14,8 +14,8 @@ from pr3d.de import (
     ConditionalGaussianMM,
 )
 from pydantic import BaseModel, PrivateAttr
-from qsimpy import SimpleQueue
 from qsimpy.core import Model
+from qsimpy.simplequeue import SimpleQueue
 
 
 class PredictorAddresses(BaseModel):

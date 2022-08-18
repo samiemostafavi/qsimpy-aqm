@@ -78,7 +78,7 @@ class DataQueue(SimpleQueue):
 
     _debug_json: str = PrivateAttr()
     _debug_list: list = PrivateAttr()
-    _predictor: EmpiricalPredictor
+    _predictor: EmpiricalPredictor = PrivateAttr()
 
     def prepare_for_run(self, model: Model, env: simpy.Environment, debug: bool):
         super().prepare_for_run(model, env, debug)

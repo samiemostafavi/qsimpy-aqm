@@ -47,7 +47,8 @@ bench_params = {  # target_delay
 
 records_paths = {
     "records_codel": "codel",
-    "records_delta": "delta",
+    "records_delta": "newdelta",
+    "records_olddelta": "delta",
     "records_oo": "offline-optimum",
 }
 
@@ -104,7 +105,7 @@ ax.set_ylabel("Failed tasks ratio")
 ax.legend()
 ax.grid()
 plt.tight_layout()
-plt.savefig(project_folder + "result.png")
+plt.savefig(project_folder + "result_newdelta.png")
 
 
 exit(0)

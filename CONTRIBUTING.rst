@@ -69,7 +69,8 @@ Ready to contribute? Here's how to set up `qsimpy-aqm` for local development.
 
     $ cd qsimpy-aqm/
     $ python -m virtualenv --python=python3.9.0 ./venv
-    $ pip install .
+    $ pip install -e ".[dev]"
+    $ pip wheel . -w wheels
 
 4. Create a branch for local development::
 

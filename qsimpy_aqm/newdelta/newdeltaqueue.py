@@ -24,8 +24,37 @@ class Horizon(BaseModel):
     Optimization horizon
     """
 
-    length: int
-    arrival_rate: float
+    max_length: int = None
+    min_length: int = None
+    arrival_rate: float = None
+
+    def populate(self, tasks: pd.DataFrame):
+        """
+        fills the tasks dataframe with new hypothetical arrivals
+        works when min_length and arrival_rate are set
+        """
+        if (self.min_length is not None) and (self.arrival_rate is not None):
+            if len(tasks) < self.min_length:
+                cur_len = len(tasks)
+                for _ in range(self.min_length - cur_len):
+                    tasks.loc[len(tasks)] = 0
+                    tasks.at[len(tasks) - 1, "delay_budget"] = (
+                        tasks.at[len(tasks) - 2, "delay_budget"]
+                        + 1.00 / self.arrival_rate
+                    )
+                    tasks.at[len(tasks) - 1, "index"] = (
+                        tasks.at[len(tasks) - 2, "index"] + 1
+                    )
+
+    def haircut(self, tasks: pd.DataFrame):
+        """
+        To maintain low decision making duration, this function removes the last
+        packets from the tasks state dataframe. For example when self.max_length
+        is 10, all tasks above index 10 will be dropped from state dataframe.
+        """
+        if self.max_length is not None:
+            if len(tasks) > self.max_length:
+                tasks = tasks.head(self.max_length)
 
 
 class NewDeltaQueue(SimpleQueue):
@@ -63,22 +92,6 @@ class NewDeltaQueue(SimpleQueue):
             self._predictor = ConditionalGammaMixtureEVM(
                 h5_addr=pred_addr,
             )
-
-    def horizon_populate(self, tasks: pd.DataFrame):
-
-        # fill tasks dataframe with new hypothetical arrivals
-        if self.horizon is not None:
-            if len(tasks) < self.horizon.length:
-                cur_len = len(tasks)
-                for _ in range(self.horizon.length - cur_len):
-                    tasks.loc[len(tasks)] = 0
-                    tasks.at[len(tasks) - 1, "delay_budget"] = (
-                        tasks.at[len(tasks) - 2, "delay_budget"]
-                        + 1.00 / self.horizon.arrival_rate
-                    )
-                    tasks.at[len(tasks) - 1, "index"] = (
-                        tasks.at[len(tasks) - 2, "index"] + 1
-                    )
 
     def calc_expected_success(
         self,
@@ -189,9 +202,13 @@ class NewDeltaQueue(SimpleQueue):
         )
         state_df["index"] = np.arange(len(state_df))
 
-        # populate df with horizon hypothetical tasks
-        # call by ref
-        self.horizon_populate(tasks=state_df)
+        if self.horizon is not None:
+            # populate df with horizon hypothetical tasks
+            # call by ref
+            self.horizon.populate(tasks=state_df)
+            # remove the tail tasks with indexes larger than max_length
+            # call by ref
+            self.horizon.haircut(tasks=state_df)
 
         success_probs_dict = dict()
         if not self.do_not_drop:

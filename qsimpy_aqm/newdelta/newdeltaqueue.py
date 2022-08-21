@@ -54,7 +54,7 @@ class Horizon(BaseModel):
         """
         if self.max_length is not None:
             if len(tasks) > self.max_length:
-                tasks = tasks.head(self.max_length)
+                tasks.drop(tasks.index[self.max_length :], inplace=True)
 
 
 class NewDeltaQueue(SimpleQueue):

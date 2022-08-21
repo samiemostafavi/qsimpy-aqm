@@ -9,13 +9,14 @@ from loguru import logger
 from qsimpy.core import Model, TimedSource
 from qsimpy.polar import PolarSink
 from qsimpy.random import Deterministic
-from qsimpy.simplequeue import SimpleQueue
 
 from arrivals import HeavyTailGamma
+from qsimpy_aqm.delta import PredictorAddresses
+from qsimpy_aqm.newdelta import NewDeltaQueue
+from qsimpy_aqm.newdelta.newdeltaqueue import Horizon
 
-# from qsimpy_aqm.delta import PredictorAddresses
-# from qsimpy_aqm.newdelta import NewDeltaQueue
-# from qsimpy_aqm.newdelta.newdeltaqueue import Horizon
+# from qsimpy.simplequeue import SimpleQueue
+
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes
@@ -32,7 +33,7 @@ source = TimedSource(
     name="start-node",
     arrival_rp=arrival,
     task_type="0",
-    delay_bound=131.054472733289,  # 131.0544, 107.70, 73.76106050610542 # 265.52116995349246,
+    delay_bound=265.5211,  # 131.0544, 107.70, 73.76106050610542 # 265.52116995349246,
 )
 model.add_entity(source)
 
@@ -48,26 +49,27 @@ service = HeavyTailGamma(
     batch_size=1000000,
 )
 
-queue = SimpleQueue(
+# queue = SimpleQueue(
+#     name="queue",
+#     service_rp=service,
+# queue_limit=10, #None
+# )
+
+queue = NewDeltaQueue(
     name="queue",
     service_rp=service,
-    # queue_limit=10, #None
+    predictor_addresses=PredictorAddresses(
+        h5_address="predictors/gmevm_model.h5",
+        json_address="predictors/gmevm_model.json",
+    ),
+    horizon=Horizon(
+        max_length=15,
+        min_length=None,
+        arrival_rate=None,
+    ),
+    debug_drops=False,
+    do_not_drop=False,
 )
-
-# queue = NewDeltaQueue(
-#    name="queue",
-#    service_rp=service,
-#    debug_drops=True,
-#    predictor_addresses=PredictorAddresses(
-#        h5_address="predictors/gmevm_model.h5",
-#        json_address="predictors/gmevm_model.json",
-#    ),
-#    horizon=Horizon(
-#        length=10,
-#        arrival_rate=arrival.rate,
-#    ),
-#    do_not_drop=True,
-# )
 model.add_entity(queue)
 
 # Sink: to capture both finished tasks and dropped tasks (PolarSink to be faster)

@@ -15,8 +15,8 @@ from loguru import logger
 # https://sefiks.com/2019/03/20/tips-and-tricks-for-gpu-and-multiprocessing-in-tensorflow/
 
 
-# physical_devices = tf.config.list_physical_devices("GPU")
-# tf.config.experimental.set_memory_growth(physical_devices[0], True)
+physical_devices = tf.config.list_physical_devices("GPU")
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 # If got any errors, try wiping CUDA cache: sudo rm -rf .nv/
 
@@ -30,7 +30,7 @@ def create_run_graph(params):
 
     from arrivals import HeavyTailGamma
     from qsimpy_aqm.delta import PredictorAddresses
-    from qsimpy_aqm.newdelta import NewDeltaQueue, Horizon
+    from qsimpy_aqm.newdelta import Horizon, NewDeltaQueue
 
     # Create the QSimPy environment
     # a class for keeping all of the entities and accessing their attributes
@@ -203,17 +203,17 @@ if __name__ == "__main__":
 
     # simulation parameters
     # p999 quantile values of no-aqm model with p1 as gpd_concentration
-    bench_params = { 
-        0:202.55575775238685,
-        1:273.8048838262912,
-        2:282.3064945228398,
-        3:239.05896678502904,
-        4:238.64361392206047,
-        5:418.07044314294035,
-        6:273.8770827760454,
-        7:209.0379134491086,
-        8:231.820108820335,
-        9:224.61337549821474,
+    bench_params = {
+        0: 202.55575775238685,
+        1: 273.8048838262912,
+        2: 282.3064945228398,
+        3: 239.05896678502904,
+        4: 238.64361392206047,
+        5: 418.07044314294035,
+        6: 273.8770827760454,
+        7: 209.0379134491086,
+        8: 231.820108820335,
+        9: 224.61337549821474,
     }
 
     # another important

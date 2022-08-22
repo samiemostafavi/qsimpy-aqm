@@ -12,8 +12,7 @@ from qsimpy.random import Deterministic
 
 from arrivals import HeavyTailGamma
 from qsimpy_aqm.delta import PredictorAddresses
-from qsimpy_aqm.newdelta import NewDeltaQueue, Horizon
-
+from qsimpy_aqm.newdelta import Horizon, NewDeltaQueue
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes

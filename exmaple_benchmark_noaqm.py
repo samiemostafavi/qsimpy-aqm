@@ -4,21 +4,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-
-# https://www.tensorflow.org/api_docs/python/tf/config/experimental/set_memory_growth
-# https://stackoverflow.com/questions/39465503/cuda-error-out-of-memory-in-tensorflow
-# The problem is, that Tensorflow is greedy in allocating all available VRAM. That causes issues when multi processes start using CUDA
-import tensorflow as tf
 from loguru import logger
-
-# To make tensorflow and CUDA work with multiprocessing, this article really helped:
-# https://sefiks.com/2019/03/20/tips-and-tricks-for-gpu-and-multiprocessing-in-tensorflow/
-
-
-# physical_devices = tf.config.list_physical_devices("GPU")
-# tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-# If got any errors, try wiping CUDA cache: sudo rm -rf .nv/
 
 
 def create_run_graph(params):
@@ -27,9 +13,9 @@ def create_run_graph(params):
     from qsimpy.core import Model, Source
     from qsimpy.polar import PolarSink
     from qsimpy.random import Deterministic
+    from qsimpy.simplequeue import SimpleQueue
 
     from arrivals import HeavyTailGamma
-    from qsimpy.simplequeue import SimpleQueue
 
     # Create the QSimPy environment
     # a class for keeping all of the entities and accessing their attributes

@@ -12,10 +12,7 @@ from qsimpy.random import Deterministic
 
 from arrivals import HeavyTailGamma
 from qsimpy_aqm.delta import PredictorAddresses
-from qsimpy_aqm.newdelta import NewDeltaQueue
-from qsimpy_aqm.newdelta.newdeltaqueue import Horizon
-
-# from qsimpy.simplequeue import SimpleQueue
+from qsimpy_aqm.newdelta import NewDeltaQueue, Horizon
 
 
 # Create the QSimPy environment
@@ -33,7 +30,7 @@ source = TimedSource(
     name="start-node",
     arrival_rp=arrival,
     task_type="0",
-    delay_bound=265.5211,  # 131.0544, 107.70, 73.76106050610542 # 265.52116995349246,
+    delay_bound=164.569,  # 131.0544, 107.70, 73.76106050610542 # 265.52116995349246,
 )
 model.add_entity(source)
 
@@ -48,12 +45,6 @@ service = HeavyTailGamma(
     dtype="float64",
     batch_size=1000000,
 )
-
-# queue = SimpleQueue(
-#     name="queue",
-#     service_rp=service,
-# queue_limit=10, #None
-# )
 
 queue = NewDeltaQueue(
     name="queue",
@@ -70,6 +61,7 @@ queue = NewDeltaQueue(
     debug_drops=False,
     do_not_drop=False,
 )
+
 model.add_entity(queue)
 
 # Sink: to capture both finished tasks and dropped tasks (PolarSink to be faster)

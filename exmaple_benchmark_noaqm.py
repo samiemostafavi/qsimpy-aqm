@@ -24,13 +24,12 @@ from loguru import logger
 def create_run_graph(params):
 
     # Must move all tf context initializations inside the child process
-    from qsimpy.core import Model, TimedSource
+    from qsimpy.core import Model, Source
     from qsimpy.polar import PolarSink
     from qsimpy.random import Deterministic
 
     from arrivals import HeavyTailGamma
-    from qsimpy_aqm.delta import PredictorAddresses
-    from qsimpy_aqm.newdelta import NewDeltaQueue, Horizon
+    from qsimpy.simplequeue import SimpleQueue
 
     # Create the QSimPy environment
     # a class for keeping all of the entities and accessing their attributes
@@ -43,11 +42,10 @@ def create_run_graph(params):
         seed=params["arrival_seed"],
         dtype="float64",
     )
-    source = TimedSource(
+    source = Source(
         name="start-node",
         arrival_rp=arrival,
         task_type="0",
-        delay_bound=params["target_delay"],
     )
     model.add_entity(source)
 
@@ -62,20 +60,10 @@ def create_run_graph(params):
         dtype="float64",
         batch_size=params["arrivals_number"],
     )
-    queue = NewDeltaQueue(
+    queue = SimpleQueue(
         name="queue",
         service_rp=service,
-        predictor_addresses=PredictorAddresses(
-            h5_address="predictors/gmevm_model.h5",
-            json_address="predictors/gmevm_model.json",
-        ),
-        horizon=Horizon(
-            max_length=15,
-            min_length=None,
-            arrival_rate=None,
-        ),
-        debug_drops=False,
-        do_not_drop=False,
+        # queue_limit=10, #None
     )
     model.add_entity(queue)
 
@@ -199,22 +187,7 @@ if __name__ == "__main__":
 
     # project folder setting
     p = Path(__file__).parents[0]
-    project_path = str(p) + "/projects/delta_new_benchmark/"
-
-    # simulation parameters
-    # p999 quantile values of no-aqm model with p1 as gpd_concentration
-    bench_params = { 
-        0:202.55575775238685,
-        1:273.8048838262912,
-        2:282.3064945228398,
-        3:239.05896678502904,
-        4:238.64361392206047,
-        5:418.07044314294035,
-        6:273.8770827760454,
-        7:209.0379134491086,
-        8:231.820108820335,
-        9:224.61337549821474,
-    }
+    project_path = str(p) + "/projects/no_aqm/"
 
     # another important
     mp.set_start_method("spawn", force=True)
@@ -227,13 +200,8 @@ if __name__ == "__main__":
         processes = []
         for i in range(parallel_runs):
 
-            # parameter figure out
-            keys = list(bench_params.keys())
-            key_this_run = keys[i]
-
             # create and prepare the results directory
-            results_path = project_path + str(key_this_run) + "_results/"
-            records_path = results_path + "records_delta/"
+            records_path = project_path + "records/"
             os.makedirs(records_path, exist_ok=True)
 
             params = {
@@ -242,7 +210,6 @@ if __name__ == "__main__":
                 "run_number": j * parallel_runs + i,
                 "arrival_seed": 100234 + i * 100101 + j * 10223,
                 "service_seed": 120034 + i * 200202 + j * 20111,
-                "target_delay": bench_params[key_this_run],  # tail decays
                 "until": int(
                     1000000  # 00
                 ),  # 10M timesteps takes 1000 seconds, generates 900k samples

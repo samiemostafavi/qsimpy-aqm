@@ -1,1 +1,1 @@
-from .newdeltaqueue import NewDeltaQueue
+from .newdeltaqueue import NewDeltaQueue, Horizon

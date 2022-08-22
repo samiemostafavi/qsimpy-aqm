@@ -13,6 +13,7 @@ from pr3d.de import (
     ConditionalGaussianMM,
 )
 from pydantic import BaseModel, PrivateAttr
+from loguru import logger
 from qsimpy.core import Model, Task
 from qsimpy.simplequeue import SimpleQueue
 
@@ -54,6 +55,7 @@ class Horizon(BaseModel):
         """
         if self.max_length is not None:
             if len(tasks) > self.max_length:
+                logger.warning(f"State vector length: {len(tasks)}, dropping to {self.max_length}")
                 tasks.drop(tasks.index[self.max_length :], inplace=True)
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from itertools import combinations
 from typing import List
 
 import numpy as np
@@ -66,9 +67,11 @@ class NewDeltaQueue(SimpleQueue):
 
     type: str = "newdeltaqueue"
     predictor_addresses: PredictorAddresses
-    debug_drops: bool = False
     horizon: Horizon = None
+    limit_drops: List[int] = None
+    gradient_check: bool = None
     do_not_drop: bool = False
+    debug_drops: bool = False
 
     _predictor: ConditionalDensityEstimator = PrivateAttr()
     _predictor_conf: dict = PrivateAttr()
@@ -125,6 +128,49 @@ class NewDeltaQueue(SimpleQueue):
         y = y.clip(min=0.00)  # important
         prob, logprob, cdf = self._predictor.prob_batch(x, y)
         return cdf
+
+    def delta_internal_limited(
+        self,
+        state_df: pd.DataFrame,
+    ):
+        results = []
+        for num_drops in self.limit_drops:
+            if len(state_df) <= num_drops:
+                continue
+
+            results_drop_num = []
+            for drops in combinations(list(range(len(state_df))), num_drops):
+                state_dropped = state_df.copy()
+                if len(drops) != 0:
+                    state_dropped.drop(
+                        index=list(drops),
+                        axis=0,
+                        inplace=True,
+                    )
+                    state_dropped.reset_index(drop=True, inplace=True)
+                self.calc_expected_success(df=state_dropped)
+                res_Psi = sum(state_dropped["success_prob"])
+                res_dict = {
+                    idx: False if (idx in drops) else True
+                    for idx in range(len(state_df))
+                }
+                entry = {"Psi": res_Psi, "dict": res_dict}
+                results_drop_num.append(entry)
+
+            if self.gradient_check:
+                if num_drops == 0:
+                    max_Psi_tmp = results_drop_num[0]["Psi"]
+                    results = results + results_drop_num
+                else:
+                    Psis = [rdict["Psi"] for rdict in results_drop_num]
+                    max_Psi = max(Psis)
+                    if max_Psi <= max_Psi_tmp:
+                        return results
+                    else:
+                        results = results + results_drop_num
+                        max_Psi_tmp = max_Psi
+
+        return results
 
     def delta_internal(
         self,
@@ -215,20 +261,22 @@ class NewDeltaQueue(SimpleQueue):
             self.horizon.haircut(tasks=state_df)
 
         success_probs_dict = dict()
-        if not self.do_not_drop:
-            for i, task_row in state_df.iterrows():
-                task_dict = task_row.to_dict()
-                success_probs_dict[i] = self.predict_success_prob(
-                    task_dict=task_dict,
-                    queue_lengths=list(range(i + 1)),
-                )
-        else:
-            self.calc_expected_success(df=state_df)
+        if self.limit_drops is None:
+            if not self.do_not_drop:
+                for i, task_row in state_df.iterrows():
+                    task_dict = task_row.to_dict()
+                    success_probs_dict[i] = self.predict_success_prob(
+                        task_dict=task_dict,
+                        queue_lengths=list(range(i + 1)),
+                    )
+            else:
+                self.calc_expected_success(df=state_df)
 
         return state_df, success_probs_dict
 
     def delta_drop(self):
         if (self.horizon is None) and (len(self._queue_df) == 1):
+            self.attributes["exp_success_rate"] = 1.00
             return False
 
         # prepare
@@ -236,13 +284,18 @@ class NewDeltaQueue(SimpleQueue):
 
         if not self.do_not_drop:
             # False: do not drop, True: drop
-            results = self.delta_internal(
-                state_df=state_df,
-                front_tasks_Psi=0,
-                front_services_num=0,
-                inp_dict={},
-                success_probs_dict=success_probs_dict,
-            )
+            if self.limit_drops is not None:
+                results = self.delta_internal_limited(
+                    state_df=state_df,
+                )
+            else:
+                results = self.delta_internal(
+                    state_df=state_df,
+                    front_tasks_Psi=0,
+                    front_services_num=0,
+                    inp_dict={},
+                    success_probs_dict=success_probs_dict,
+                )
 
             Psis = [rdict["Psi"] for rdict in results]
             max_Psi = max(Psis)
@@ -261,14 +314,6 @@ class NewDeltaQueue(SimpleQueue):
             )
             # return True or False for the first element (head)
             drop = False
-
-        if drop:
-            self.attributes["cur_success_rate"] = 0
-        else:
-            if not self.do_not_drop:
-                self.attributes["cur_success_rate"] = success_probs_dict[0][0]
-            else:
-                self.attributes["cur_success_rate"] = state_df.at[0, "success_prob"]
 
         if self.debug_drops and drop:
             print(f"DROP: chosen action: {max_index}")

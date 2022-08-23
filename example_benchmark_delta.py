@@ -175,10 +175,7 @@ def create_run_graph(params):
 
     end = time.time()
 
-    df.write_parquet(
-        file=params["records_path"] + f"{params['run_number']}_records.parquet",
-        compression="snappy",
-    )
+    df.to_parquet(params["records_path"] + f"{params['run_number']}_records.parquet")
 
     logger.info(
         "{0}: Data processing finished in {1} seconds".format(
@@ -192,7 +189,6 @@ if __name__ == "__main__":
     # project folder setting
     p = Path(__file__).parents[0]
     project_path = str(p) + "/projects/delta_benchmark_lowutil/"
-    os.makedirs(project_path, exist_ok=True)
 
     # simulation parameters
     # quantile values of no-aqm model with p1 as gpd_concentration

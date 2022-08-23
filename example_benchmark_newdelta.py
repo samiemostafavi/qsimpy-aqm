@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
             # parameter figure out
             keys = list(bench_params.keys())
-            key_this_run = keys[i]
+            key_this_run = keys[i % len(keys)]
 
             # create and prepare the results directory
             results_path = project_path + str(key_this_run) + "_results/"

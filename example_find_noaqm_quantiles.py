@@ -2,8 +2,8 @@ import os
 
 from pyspark.sql import SparkSession
 
-records_path = "projects/no_aqm/records1M/"
-qrange_list = [0.8, 0.9, 0.99, 0.999]
+records_path = "projects/no_aqm/records_low/"
+qrange_list = [0.8, 0.9, 0.99, 0.999, 0.9999, 0.99999]
 
 
 def init_spark():
@@ -33,7 +33,7 @@ for f in all_files:
         small_df = spark.read.parquet(records_path + f)
         res = small_df.approxQuantile("end2end_delay", qrange_list, 0)
         res_dict = {str(ql): qv for ql, qv in zip(qrange_list, res)}
-        print(f"file {f} - {res_dict}")
+        print(f"file {f} - Samples: {small_df.count()} - {res_dict}")
 
 df = spark.read.parquet(*files)
 res = df.approxQuantile("end2end_delay", qrange_list, 0)

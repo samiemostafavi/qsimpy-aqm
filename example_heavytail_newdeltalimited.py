@@ -44,7 +44,7 @@ service = HeavyTailGamma(
     gpd_concentration=0.1,  # p9
     threshold_qnt=0.8,
     dtype="float64",
-    batch_size=1000000,
+    batch_size=10000000,
 )
 
 queue = NewDeltaQueue(
@@ -125,6 +125,19 @@ model.set_task_records(
 
 # prepare for run
 model.prepare_for_run(debug=False)
+
+quant_labels = [0.5, 0.8, 0.9, 0.99, 0.999, 0.9999, 0.99999]
+res = np.quantile(
+    a=np.array(queue.service_rp._pregenerated_samples),
+    q=quant_labels,
+)
+quants = {label: res[idx] for idx, label in enumerate(quant_labels)}
+service_mean = np.mean(queue.service_rp._pregenerated_samples)
+logger.info(
+    f"Service mean: {service_mean},\
+arrival mean: {1.00/arrival.rate}, utilization: {service_mean*arrival.rate}\n \
+quantiles:{quants}"
+)
 
 # run configuration
 until = 1000000  # 100000

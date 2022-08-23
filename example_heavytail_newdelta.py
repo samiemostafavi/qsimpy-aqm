@@ -11,8 +11,7 @@ from qsimpy.polar import PolarSink
 from qsimpy.random import Deterministic
 
 from arrivals import HeavyTailGamma
-from qsimpy_aqm.delta import PredictorAddresses
-from qsimpy_aqm.newdelta import Horizon, NewDeltaQueue
+from qsimpy_aqm.delta import DeltaQueue, PredictorAddresses
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes
@@ -45,22 +44,15 @@ service = HeavyTailGamma(
     batch_size=1000000,
 )
 
-queue = NewDeltaQueue(
+queue = DeltaQueue(
     name="queue",
     service_rp=service,
     predictor_addresses=PredictorAddresses(
         h5_address="predictors/gmevm_model.h5",
         json_address="predictors/gmevm_model.json",
     ),
-    horizon=Horizon(
-        max_length=15,
-        min_length=None,
-        arrival_rate=None,
-    ),
     debug_drops=False,
-    do_not_drop=False,
 )
-
 model.add_entity(queue)
 
 # Sink: to capture both finished tasks and dropped tasks (PolarSink to be faster)
@@ -124,7 +116,7 @@ model.set_task_records(
 model.prepare_for_run(debug=False)
 
 # run configuration
-until = 10000000  # 100000
+until = 1000000  # 100000
 report_state_frac = 0.01  # every 1% report
 
 
@@ -169,7 +161,6 @@ print(f"{all_missed/len(pd_df)} fraction of tasks failed.")
 
 print(f"0.999 quantile: {pd_df.end2end_delay.quantile(0.999)}")
 
-exit(0)
 
 while len(pd_df) > queue.horizon.length:
     head_n = pd_df.head(queue.horizon.length)

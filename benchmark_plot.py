@@ -27,7 +27,7 @@ def init_spark():
 spark, sc = init_spark()
 
 # open the dataframe from parquet files
-project_folder = "projects/aqm_benchmark/"
+project_folder = "projects/aqm_benchmark_lowutil/"
 project_paths = [
     project_folder + name
     for name in os.listdir(project_folder)
@@ -39,17 +39,17 @@ project_paths = [
 logger.info(f"All project folders: {project_paths}")
 
 bench_params = {  # target_delay
-    "p8_results": 0.8,
-    "p9_results": 0.9,
-    "p99_results": 0.99,
+    # "p8_results": 0.8,
+    # "p9_results": 0.9,
+    # "p99_results": 0.99,
     "p999_results": 0.999,
 }
 
 records_paths = {
-    "records_codel": "codel",
-    "records_delta": "newdelta",
-    "records_olddelta": "delta",
-    "records_oo": "offline-optimum",
+    # "records_codel": "codel",
+    "newdelta": "newdelta",
+    "delta": "delta",
+    # "records_oo": "offline-optimum",
 }
 
 results = pd.DataFrame(

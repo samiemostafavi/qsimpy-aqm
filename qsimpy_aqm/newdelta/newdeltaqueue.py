@@ -72,6 +72,7 @@ class NewDeltaQueue(SimpleQueue):
     gradient_check: bool = None
     do_not_drop: bool = False
     debug_drops: bool = False
+    debug_all: bool = False
 
     _predictor: ConditionalDensityEstimator = PrivateAttr()
     _predictor_conf: dict = PrivateAttr()
@@ -315,8 +316,10 @@ class NewDeltaQueue(SimpleQueue):
             # return True or False for the first element (head)
             drop = False
 
-        if self.debug_drops and drop:
-            print(f"DROP: chosen action: {max_index}")
+        if (self.debug_drops and drop) or self.debug_all:
+            print(
+                f"DROP: {drop} chosen action: {max_index}, task id: {self._queue_df.id[0]}"
+            )
             self.print_solution_results(results)
             print("state dataframe:")
             print(f"{state_df}")

@@ -14,7 +14,7 @@ from pr3d.de import (
     ConditionalGaussianMM,
 )
 from pydantic import BaseModel, PrivateAttr
-from qsimpy.core import Model
+from qsimpy.core import Model, Task
 from qsimpy.simplequeue import SimpleQueue
 
 
@@ -30,11 +30,13 @@ class DeltaQueue(SimpleQueue):
     type: str = "deltaqueue"
     predictor_addresses: PredictorAddresses
     debug_drops: bool = False
+    debug_all: bool = False
 
     _predictor: ConditionalDensityEstimator = PrivateAttr()
     _predictor_conf: dict = PrivateAttr()
     _debug_json: str = PrivateAttr()
     _debug_list: list = PrivateAttr()
+    _queue_df: pd.DataFrame = PrivateAttr(default=None)
 
     def prepare_for_run(self, model: Model, env: simpy.Environment, debug: bool):
         super().prepare_for_run(model, env, debug)
@@ -88,49 +90,78 @@ class DeltaQueue(SimpleQueue):
         # print(df)
         return df["success_prob"].sum()
 
+    def delta_drop(self):
+        if len(self._queue_df) <= 1:
+            self.attributes["exp_success_rate"] = 1.00
+            return False
+
+        # before popping the head of queue, Delta algorithm kicks in
+        df_original = self._queue_df.copy()
+        df_dropped = self._queue_df.copy()
+        df_dropped = df_dropped.iloc[1:, :]
+        s1 = self.calc_expected_success(df_original)
+        s2 = self.calc_expected_success(df_dropped)
+        delta = s2 - s1
+        drop = delta > 0
+        if drop:
+            self.attributes["exp_success_rate"] = s2
+        else:
+            self.attributes["exp_success_rate"] = s1
+
+        # once the decision is made, update _queue_df
+        # drop last row
+        self._queue_df.drop(
+            index=self._queue_df.index[0],
+            axis=0,
+            inplace=True,
+        )
+        self._queue_df.reset_index(drop=True, inplace=True)  # important
+
+        if (self.debug_drops and drop) or self.debug_all:
+            print(
+                f"DROP:{drop} delta:{delta}, s_dropped: {s2}, s_original:{s1}, len(s):{len(df_original)}"
+            )
+            print(df_original)
+            dict_orig = df_original[
+                ["queue_length", "delay_budget", "success_prob"]
+            ].to_dict()
+            print(df_dropped)
+            dict_drop = df_dropped[
+                ["queue_length", "delay_budget", "success_prob"]
+            ].to_dict()
+            dict_both = {"orig": dict_orig, "dropped": dict_drop}
+            self._debug_list.append(dict_both)
+            self._debug_json = json.dumps(self._debug_list, indent=2)
+
+        return drop
+
     def run(self) -> None:
         """
         serving tasks
         """
         while True:
-            # before popping the head of queue, Delta algorithm kicks in
-            df_original = pd.DataFrame(self._store.items)
-            if len(df_original) > 1:
-                df_dropped = df_original.copy()
-                df_dropped = df_dropped.iloc[1:, :]
-                s1 = self.calc_expected_success(df_original)
-                s2 = self.calc_expected_success(df_dropped)
-                delta = s2 - s1
-                if delta > 0:
-                    if self.debug_drops:
-                        print(
-                            f"DROP: delta:{delta}, s_dropped: {s2}, s_original:{s1}, len(s):{len(df_original)}"
-                        )
-                        print(df_original)
-                        dict_orig = df_original[
-                            ["queue_length", "delay_budget", "success_prob"]
-                        ].to_dict()
-                        print(df_dropped)
-                        dict_drop = df_dropped[
-                            ["queue_length", "delay_budget", "success_prob"]
-                        ].to_dict()
-                        dict_both = {"orig": dict_orig, "dropped": dict_drop}
-                        self._debug_list.append(dict_both)
-                        self._debug_json = json.dumps(self._debug_list, indent=2)
 
-                    d_task = yield self._store.get()
-                    # drop the task
-                    self.attributes["tasks_dropped"] += 1
-                    if self.drop is not None:
-                        self._drop.put(d_task)
-
-                    # start over
-                    continue
-
-            # server takes the head task from the queue
+            # pop the head
             task = yield self._store.get()
             self.attributes["queue_length"] -= 1
 
+            # delta kicks in
+            drop_task = self.delta_drop()
+
+            # EVENT drop_decision_made
+            task = self.add_records(task=task, event_name="drop_decision_made")
+
+            # perform delta's decision
+            if drop_task:
+                # drop the task
+                self.attributes["tasks_dropped"] += 1
+                if self.drop is not None:
+                    self._drop.put(task)
+
+                # start over
+                continue
+
+            # pass the task for the service
             # EVENT service_start
             task = self.add_records(task=task, event_name="service_start")
 
@@ -154,3 +185,41 @@ class DeltaQueue(SimpleQueue):
             # put it on the output
             if self.out is not None:
                 self._out.put(task)
+
+    def put(self, task: Task) -> None:
+        """
+        queuing tasks
+        """
+
+        # increase the received counter
+        self.attributes["tasks_received"] += 1
+
+        # EVENT task_reception
+        task = self.add_records(task=task, event_name="task_reception")
+
+        # check if we need to drop the task due to buffer size limit
+        drop = False
+        if self.queue_limit is not None:
+            if self.attributes["queue_length"] + 1 >= self.queue_limit:
+                drop = True
+
+        if drop:
+            # drop the task
+            self.attributes["tasks_dropped"] += 1
+            if self.drop is not None:
+                self._drop.put(task)
+        else:
+            # store the task in the queue
+            self.attributes["queue_length"] += 1
+
+            # update the queue dataframe
+            if self._queue_df is not None:
+                self._queue_df = pd.concat(
+                    [self._queue_df, pd.DataFrame([task])],
+                    ignore_index=True,
+                )
+            else:
+                self._queue_df = pd.DataFrame([task])
+
+            # stor the task
+            self._store.put(task)

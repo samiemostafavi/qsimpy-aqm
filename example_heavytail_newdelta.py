@@ -1,6 +1,5 @@
 import time
 
-import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
 
@@ -11,7 +10,8 @@ from qsimpy.polar import PolarSink
 from qsimpy.random import Deterministic
 
 from arrivals import HeavyTailGamma
-from qsimpy_aqm.delta import DeltaQueue, PredictorAddresses
+from qsimpy_aqm.delta import PredictorAddresses
+from qsimpy_aqm.newdelta import NewDeltaQueue
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes
@@ -20,7 +20,7 @@ model = Model(name="test delta aqm")
 # Create a source
 # arrival process deterministic
 arrival = Deterministic(
-    rate=0.095,
+    rate=0.09,
     seed=100234,
     dtype="float64",
 )
@@ -28,7 +28,7 @@ source = TimedSource(
     name="start-node",
     arrival_rp=arrival,
     task_type="0",
-    delay_bound=164.569,  # 131.0544, 107.70, 73.76106050610542 # 265.52116995349246,
+    delay_bound=31.81568,
 )
 model.add_entity(source)
 
@@ -44,14 +44,17 @@ service = HeavyTailGamma(
     batch_size=1000000,
 )
 
-queue = DeltaQueue(
+queue = NewDeltaQueue(
     name="queue",
     service_rp=service,
     predictor_addresses=PredictorAddresses(
         h5_address="predictors/gmevm_model.h5",
         json_address="predictors/gmevm_model.json",
     ),
-    debug_drops=False,
+    limit_drops=[0, 1, 2, 3],
+    gradient_check=True,
+    debug_drops=True,
+    debug_all=False,
 )
 model.add_entity(queue)
 
@@ -104,7 +107,6 @@ model.set_task_records(
                 "drop_decision_made": {
                     queue.name: {
                         "exp_success_rate": "exp_success_rate",
-                        "cur_success_rate": "success_rate",
                     },
                 },
             },
@@ -116,8 +118,8 @@ model.set_task_records(
 model.prepare_for_run(debug=False)
 
 # run configuration
-until = 1000000  # 100000
-report_state_frac = 0.01  # every 1% report
+until = 1000
+report_state_frac = 0.1  # every 1% report
 
 
 # report timesteps
@@ -158,41 +160,4 @@ all_missed = len(
     pd_df[(pd_df["end2end_delay"] > source.delay_bound) | (pd_df["end_time"] == -1)]
 )
 print(f"{all_missed/len(pd_df)} fraction of tasks failed.")
-
 print(f"0.999 quantile: {pd_df.end2end_delay.quantile(0.999)}")
-
-
-while len(pd_df) > queue.horizon.length:
-    head_n = pd_df.head(queue.horizon.length)
-    count = len(
-        head_n[
-            (head_n["end2end_delay"] > source.delay_bound) | (head_n["end_time"] == -1)
-        ]
-    )
-    res.append(1.00 - (count / queue.horizon.length))
-    # drop first row
-    pd_df.drop(
-        index=pd_df.index[0],
-        axis=0,
-        inplace=True,
-    )
-    pd_df.reset_index(drop=True, inplace=True)  # important
-
-fig, ax = plt.subplots()
-ax.plot(df["exp_success_rate"])
-plt.savefig("noaqm_predicted_success_rate_p999_h10.png")
-
-fig, ax = plt.subplots()
-ax.plot(res)
-plt.savefig("noaqm_measured_success_rate_p999_h10.png")
-
-# plot end-to-end delay profile
-# sns.set_style("darkgrid")
-# sns.displot(df["end2end_delay"], kde=True)
-# plt.savefig("end2end_aqm.png")
-
-# sns.displot(df["service_delay"], kde=True)
-# plt.savefig("service_delay_aqm.png")
-
-# sns.displot(df["queue_delay"], kde=True)
-# plt.savefig("queue_delay_aqm.png")

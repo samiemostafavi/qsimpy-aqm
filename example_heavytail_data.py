@@ -27,7 +27,7 @@ source = TimedSource(
     name="start-node",
     arrival_rp=arrival,
     task_type="0",
-    delay_bound=131.0544,  # 107.70, 131.0544
+    delay_bound=31.81568,
 )
 model.add_entity(source)
 

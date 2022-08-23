@@ -20,6 +20,9 @@ from loguru import logger
 
 # If got any errors, try wiping CUDA cache: sudo rm -rf .nv/
 
+# disable GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 
 def create_run_graph(params):
 

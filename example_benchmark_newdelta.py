@@ -20,6 +20,9 @@ from loguru import logger
 
 # If got any errors, try wiping CUDA cache: sudo rm -rf .nv/
 
+# disable GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 
 def create_run_graph(params):
 
@@ -242,7 +245,7 @@ if __name__ == "__main__":
                 "service_seed": 120034 + i * 200202 + j * 20111,
                 "target_delay": bench_params[key_this_run],  # tail decays
                 "until": int(
-                    1000  # 00
+                    1000000  # 00
                 ),  # 10M timesteps takes 1000 seconds, generates 900k samples
                 "report_state": 0.05,  # 0.05 # report when 10%, 20%, etc progress reaches
             }

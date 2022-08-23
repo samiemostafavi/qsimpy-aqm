@@ -198,17 +198,17 @@ if __name__ == "__main__":
     # quantile values of no-aqm model with p1 as gpd_concentration
     bench_params = {  # target_delay
         "p999": 119.36120,
-        "p99": 82.02233,
-        "p9": 43.50905,
-        "p8": 31.81568,
+        # "p99": 82.02233,
+        # "p9": 43.50905,
+        # "p8": 31.81568,
     }
 
     # another important
     mp.set_start_method("spawn", force=True)
 
     # 4 x 4, until 1000000 took 7 hours
-    sequential_runs = 2  # 2  # 4
-    parallel_runs = 16  # 8  # 18
+    sequential_runs = 1  # 2  # 4
+    parallel_runs = 18  # 8  # 18
     for j in range(sequential_runs):
 
         processes = []

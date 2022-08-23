@@ -229,7 +229,7 @@ if __name__ == "__main__":
             key_this_run = keys[i % len(keys)]
 
             # create and prepare the results directory
-            results_path = project_path + str(key_this_run) + "_results/"
+            results_path = project_path + key_this_run + "_results/"
             records_path = results_path + "records_delta/"
             os.makedirs(records_path, exist_ok=True)
 

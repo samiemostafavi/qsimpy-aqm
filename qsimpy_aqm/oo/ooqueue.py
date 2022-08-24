@@ -4,8 +4,8 @@ from dataclasses import field, make_dataclass
 
 import numpy as np
 import pandas as pd
-from qsimpy import SimpleQueue
 from qsimpy.core import Task
+from qsimpy.simplequeue import SimpleQueue
 
 
 class OfflineOptimumQueue(SimpleQueue):

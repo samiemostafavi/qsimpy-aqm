@@ -275,8 +275,30 @@ class NewDeltaQueue(SimpleQueue):
 
         return state_df, success_probs_dict
 
+    def pop_head_queue_df(self):
+        # once the decision is made, update _queue_df
+        # drop last row
+        self._queue_df.drop(
+            index=self._queue_df.index[0],
+            axis=0,
+            inplace=True,
+        )
+        self._queue_df.reset_index(drop=True, inplace=True)  # important
+
     def delta_drop(self):
-        if (self.horizon is None) and (len(self._queue_df) == 1):
+
+        if (self.horizon is None) and (len(self._queue_df) <= 1):
+
+            if self.debug_all:
+                print(
+                    "DROP:False, single task queue "
+                    + f"len(s):{len(self._queue_df)}, "
+                    + f"task_id: {self._queue_df.at[0,'id']}"
+                )
+
+            # important, pop the head
+            self.pop_head_queue_df()
+
             self.attributes["exp_success_rate"] = 1.00
             return False
 
@@ -324,14 +346,8 @@ class NewDeltaQueue(SimpleQueue):
             print("state dataframe:")
             print(f"{state_df}")
 
-        # once the decision is made, update _queue_df
-        # drop last row
-        self._queue_df.drop(
-            index=self._queue_df.index[0],
-            axis=0,
-            inplace=True,
-        )
-        self._queue_df.reset_index(drop=True, inplace=True)  # important
+        # important, pop the head
+        self.pop_head_queue_df()
 
         return drop
 

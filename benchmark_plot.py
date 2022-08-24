@@ -39,9 +39,9 @@ project_paths = [
 logger.info(f"All project folders: {project_paths}")
 
 bench_params = {  # target_delay
-    # "p8_results": 0.8,
-    # "p9_results": 0.9,
-    # "p99_results": 0.99,
+    "p8_results": 0.8,
+    "p9_results": 0.9,
+    "p99_results": 0.99,
     "p999_results": 0.999,
 }
 

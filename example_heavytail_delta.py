@@ -49,7 +49,7 @@ queue = DeltaQueue(
         json_address="predictors/gmevm_model.json",
     ),
     debug_drops=True,
-    debug_all=False,
+    debug_all=True,
 )
 model.add_entity(queue)
 

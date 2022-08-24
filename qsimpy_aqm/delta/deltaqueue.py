@@ -90,9 +90,31 @@ class DeltaQueue(SimpleQueue):
         # print(df)
         return df["success_prob"].sum()
 
+    def pop_head_queue_df(self):
+        # once the decision is made, update _queue_df
+        # drop last row
+        self._queue_df.drop(
+            index=self._queue_df.index[0],
+            axis=0,
+            inplace=True,
+        )
+        self._queue_df.reset_index(drop=True, inplace=True)  # important
+
     def delta_drop(self):
         if len(self._queue_df) <= 1:
+
+            if self.debug_all:
+                print(
+                    "DROP:False, single task queue "
+                    + f"len(s):{len(self._queue_df)}, "
+                    + f"task_id: {self._queue_df.at[0,'id']}"
+                )
+
             self.attributes["exp_success_rate"] = 1.00
+
+            # important, pop the head
+            self.pop_head_queue_df()
+
             return False
 
         # before popping the head of queue, Delta algorithm kicks in
@@ -108,18 +130,10 @@ class DeltaQueue(SimpleQueue):
         else:
             self.attributes["exp_success_rate"] = s1
 
-        # once the decision is made, update _queue_df
-        # drop last row
-        self._queue_df.drop(
-            index=self._queue_df.index[0],
-            axis=0,
-            inplace=True,
-        )
-        self._queue_df.reset_index(drop=True, inplace=True)  # important
-
         if (self.debug_drops and drop) or self.debug_all:
             print(
-                f"DROP:{drop} delta:{delta}, s_dropped: {s2}, s_original:{s1}, len(s):{len(df_original)}"
+                f"DROP:{drop}, delta:{delta}, s_dropped: {s2}, "
+                + f"s_original:{s1}, len(s):{len(df_original)}"
             )
             print(df_original)
             dict_orig = df_original[
@@ -132,6 +146,9 @@ class DeltaQueue(SimpleQueue):
             dict_both = {"orig": dict_orig, "dropped": dict_drop}
             self._debug_list.append(dict_both)
             self._debug_json = json.dumps(self._debug_list, indent=2)
+
+        # important, pop the head
+        self.pop_head_queue_df()
 
         return drop
 

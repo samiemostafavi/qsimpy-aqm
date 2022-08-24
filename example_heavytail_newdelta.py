@@ -54,7 +54,7 @@ queue = NewDeltaQueue(
     limit_drops=[0, 1, 2, 3],
     gradient_check=True,
     debug_drops=True,
-    debug_all=False,
+    debug_all=True,
 )
 model.add_entity(queue)
 

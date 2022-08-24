@@ -8,14 +8,16 @@ import numpy as np
 # https://www.tensorflow.org/api_docs/python/tf/config/experimental/set_memory_growth
 # https://stackoverflow.com/questions/39465503/cuda-error-out-of-memory-in-tensorflow
 # The problem is, that Tensorflow is greedy in allocating all available VRAM. That causes issues when multi processes start using CUDA
-import tensorflow as tf
+# import tensorflow as tf
 
 # To make tensorflow and CUDA work with multiprocessing, this article really helped:
 # https://sefiks.com/2019/03/20/tips-and-tricks-for-gpu-and-multiprocessing-in-tensorflow/
 
+# disable GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-physical_devices = tf.config.list_physical_devices("GPU")
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+# physical_devices = tf.config.list_physical_devices("GPU")
+# tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 # If got any errors, try wiping CUDA cache: sudo rm -rf .nv/
 
@@ -23,7 +25,8 @@ tf.config.experimental.set_memory_growth(physical_devices[0], True)
 def create_run_graph(params):
 
     # Must move all tf context initializations inside the child process
-    import qsimpy
+    from qsimpy.core import Model, TimedSource
+    from qsimpy.polar import PolarSink
     from qsimpy.random import Deterministic
 
     from arrivals import HeavyTailGamma
@@ -31,7 +34,7 @@ def create_run_graph(params):
 
     # Create the QSimPy environment
     # a class for keeping all of the entities and accessing their attributes
-    model = qsimpy.Model(name=f"Delta AQM benchmark #{params['run_number']}")
+    model = Model(name=f"Offline Optimum AQM benchmark #{params['run_number']}")
 
     # Create a source
     # arrival process deterministic
@@ -40,7 +43,7 @@ def create_run_graph(params):
         seed=params["arrival_seed"],
         dtype="float64",
     )
-    source = qsimpy.TimedSource(
+    source = TimedSource(
         name="start-node",
         arrival_rp=arrival,
         task_type="0",
@@ -66,7 +69,7 @@ def create_run_graph(params):
     model.add_entity(queue)
 
     # Sink: to capture both finished tasks and dropped tasks (PolarSink to be faster)
-    sink = qsimpy.PolarSink(
+    sink = PolarSink(
         name="sink",
         batch_size=10000,
     )
@@ -77,19 +80,6 @@ def create_run_graph(params):
         df["end2end_delay"] = df["end_time"] - df["start_time"]
         df["service_delay"] = df["end_time"] - df["service_time"]
         df["queue_delay"] = df["service_time"] - df["queue_time"]
-        # process time in service
-        df["time_in_service"] = df.apply(
-            lambda row: (row.start_time - row.last_service_time)
-            if row.queue_is_busy
-            else None,
-            axis=1,
-        ).astype("float64")
-        # process longer_delay_prob here for benchmark purposes
-        df["longer_delay_prob"] = np.float64(1.00) - service.cdf(
-            y=df["time_in_service"].to_numpy(),
-        )
-        df["longer_delay_prob"] = df["longer_delay_prob"].fillna(np.float64(0.00))
-        del df["last_service_time"], df["queue_is_busy"]
         return df
 
     sink._post_process_fn = user_fn
@@ -118,8 +108,6 @@ def create_run_graph(params):
                     "task_generation": {
                         queue.name: {
                             "queue_length": "queue_length",
-                            "last_service_time": "last_service_time",
-                            "is_busy": "queue_is_busy",
                         },
                     },
                 },
@@ -182,7 +170,10 @@ def create_run_graph(params):
 
     end = time.time()
 
-    df.to_parquet(params["records_path"] + f"{params['run_number']}_records.parquet")
+    df.write_parquet(
+        file=params["records_path"] + f"{params['run_number']}_records.parquet",
+        compression="snappy",
+    )
 
     print(
         "{0}: Data processing finished in {1} seconds".format(
@@ -195,23 +186,33 @@ if __name__ == "__main__":
 
     # project folder setting
     p = Path(__file__).parents[0]
-    project_path = str(p) + "/projects/aqm_benchmark/"
+    project_path = str(p) + "/projects/oo_benchmark_highutil/"
+    os.makedirs(project_path, exist_ok=True)
 
     # simulation parameters
     # quantile values of no-aqm model with p1 as gpd_concentration
+    """
     bench_params = {  # target_delay
-        "p999": 131.054472733289,
-        "p99": 107.70908319205046,
-        "p9": 73.76106050610542,
-        "p8": 57.15778886526823,
+        "p999": 119.36120,
+        "p99": 82.02233,
+        "p9": 43.50905,
+        "p8": 31.81568,
+    }
+    """
+    # 0.095 arrival rate quantiles:
+    bench_params = {  # target_delay
+        "p999": 293.10694,
+        "p99": 186.76862,
+        "p9": 96.69882,
+        "p8": 69.02151,
     }
 
     # another important
     mp.set_start_method("spawn", force=True)
 
     # 4 x 4, until 1000000 took 7 hours
-    sequential_runs = 4  # 4
-    parallel_runs = 4  # 18
+    sequential_runs = 1  # 4
+    parallel_runs = 16  # 18
     for j in range(sequential_runs):
 
         processes = []
@@ -228,7 +229,7 @@ if __name__ == "__main__":
 
             params = {
                 "records_path": records_path,
-                "arrivals_number": 100000,  # 5M #1.5M
+                "arrivals_number": 1000000,  # 5M #1.5M
                 "run_number": j * parallel_runs + i,
                 "arrival_seed": 100234 + i * 100101 + j * 10223,
                 "service_seed": 120034 + i * 200202 + j * 20111,

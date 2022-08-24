@@ -24,7 +24,7 @@ def create_run_graph(params):
     # Create a source
     # arrival process deterministic
     arrival = Deterministic(
-        rate=0.09,
+        rate=0.095,
         seed=params["arrival_seed"],
         dtype="float64",
     )
@@ -193,14 +193,14 @@ if __name__ == "__main__":
 
     # 4 x 4, until 1000000 took 7 hours
     sequential_runs = 1  # 2  # 2  # 4
-    parallel_runs = 18  # 8  # 8  # 18
+    parallel_runs = 16  # 8  # 8  # 18
     for j in range(sequential_runs):
 
         processes = []
         for i in range(parallel_runs):
 
             # create and prepare the results directory
-            records_path = project_path + "records_low/"
+            records_path = project_path + "records_new/"
             os.makedirs(records_path, exist_ok=True)
 
             params = {
@@ -210,7 +210,7 @@ if __name__ == "__main__":
                 "arrival_seed": 100234 + i * 100101 + j * 10223,
                 "service_seed": 120034 + i * 200202 + j * 20111,
                 "until": int(
-                    10000000  # 00
+                    1000000  # 00
                 ),  # 10M timesteps takes 1000 seconds, generates 900k samples
                 "report_state": 0.01,  # 0.05 # report when 10%, 20%, etc progress reaches
             }

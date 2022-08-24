@@ -33,9 +33,8 @@ def create_run_graph(params):
 
     from arrivals import HeavyTailGamma
     from qsimpy_aqm.delta import PredictorAddresses
-    from qsimpy_aqm.newdelta import NewDeltaQueue
+    from qsimpy_aqm.newdelta import Horizon, NewDeltaQueue
 
-    # from qsimpy_aqm.newdelta import Horizon
     # Create the QSimPy environment
     # a class for keeping all of the entities and accessing their attributes
     model = Model(name=f"New Delta AQM benchmark #{params['run_number']}")
@@ -43,7 +42,7 @@ def create_run_graph(params):
     # Create a source
     # arrival process deterministic
     arrival = Deterministic(
-        rate=0.09,
+        rate=0.095,  # 0.09 low or 0.095 high
         seed=params["arrival_seed"],
         dtype="float64",
     )
@@ -73,11 +72,11 @@ def create_run_graph(params):
             h5_address="predictors/gmevm_model.h5",
             json_address="predictors/gmevm_model.json",
         ),
-        # horizon=Horizon(
-        #    max_length=15,
-        #    min_length=None,
-        #    arrival_rate=None,
-        # ),
+        horizon=Horizon(
+            max_length=15,
+            min_length=None,
+            arrival_rate=None,
+        ),
         limit_drops=[0, 1, 2, 3],
         gradient_check=True,
         debug_drops=False,
@@ -205,16 +204,26 @@ if __name__ == "__main__":
 
     # project folder setting
     p = Path(__file__).parents[0]
-    project_path = str(p) + "/projects/deltanew_benchmark_lowutil/"
+    project_path = str(p) + "/projects/deltanew_benchmark_highutil/"
     os.makedirs(project_path, exist_ok=True)
 
     # simulation parameters
     # quantile values of no-aqm model with p1 as gpd_concentration
+    # 0.09 arrival rate quantiles:
+    """
     bench_params = {  # target_delay
         "p999": 119.36120,
         "p99": 82.02233,
         "p9": 43.50905,
         "p8": 31.81568,
+    }
+    """
+    # 0.095 arrival rate quantiles:
+    bench_params = {  # target_delay
+        "p999": 293.10694,
+        "p99": 186.76862,
+        "p9": 96.69882,
+        "p8": 69.02151,
     }
 
     # another important

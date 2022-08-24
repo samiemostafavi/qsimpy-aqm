@@ -2,7 +2,7 @@ import os
 
 from pyspark.sql import SparkSession
 
-records_path = "projects/no_aqm/records_low/"
+records_path = "projects/no_aqm/records_18/"
 qrange_list = [0.8, 0.9, 0.99, 0.999, 0.9999, 0.99999]
 
 

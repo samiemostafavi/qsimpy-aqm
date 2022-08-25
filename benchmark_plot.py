@@ -27,7 +27,7 @@ def init_spark():
 spark, sc = init_spark()
 
 # open the dataframe from parquet files
-project_folder = "projects/aqm_benchmark_highutil/"
+project_folder = "projects/aqm_benchmark_lowutil/"
 project_paths = [
     project_folder + name
     for name in os.listdir(project_folder)
@@ -49,7 +49,7 @@ records_paths = {
     # "records_codel": "codel",
     "newdelta": "newdelta",
     # "delta": "delta",
-    # "records_oo": "offline-optimum",
+    "oo": "offline-optimum",
 }
 
 results = pd.DataFrame(

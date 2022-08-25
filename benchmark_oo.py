@@ -11,6 +11,8 @@ import numpy as np
 # import tensorflow as tf
 from loguru import logger
 
+from qsimpy_aqm.newdelta.newdeltaqueue import Horizon
+
 # To make tensorflow and CUDA work with multiprocessing, this article really helped:
 # https://sefiks.com/2019/03/20/tips-and-tricks-for-gpu-and-multiprocessing-in-tensorflow/
 
@@ -40,7 +42,7 @@ def create_run_graph(params):
     # Create a source
     # arrival process deterministic
     arrival = Deterministic(
-        rate=0.09,
+        rate=0.095,
         seed=params["arrival_seed"],
         dtype="float64",
     )
@@ -66,6 +68,11 @@ def create_run_graph(params):
     queue = OfflineOptimumQueue(
         name="queue",
         service_rp=service,
+        horizon=Horizon(
+            max_length=15,
+            min_length=None,
+            arrival_rate=None,
+        ),
         debug_all=False,
         debug_drops=False,
     )
@@ -191,12 +198,12 @@ if __name__ == "__main__":
 
     # project folder setting
     p = Path(__file__).parents[0]
-    project_path = str(p) + "/projects/oo_benchmark_lowutil/"
+    project_path = str(p) + "/projects/oo_benchmark_highutil/"
     os.makedirs(project_path, exist_ok=True)
 
     # simulation parameters
     # quantile values of no-aqm model with p1 as gpd_concentration
-
+    """
     bench_params = {  # target_delay
         "p999": 119.36120,
         "p99": 82.02233,
@@ -211,7 +218,7 @@ if __name__ == "__main__":
         "p9": 96.69882,
         "p8": 69.02151,
     }
-    """
+
     # another important
     mp.set_start_method("spawn", force=True)
 
@@ -225,6 +232,11 @@ if __name__ == "__main__":
 
             # parameter figure out
             keys = list(bench_params.keys())
+
+            # LIMIT
+            if i % len(keys) != 0:
+                continue
+
             key_this_run = keys[i % len(keys)]
 
             # create and prepare the results directory

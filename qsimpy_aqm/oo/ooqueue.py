@@ -8,12 +8,15 @@ from pydantic import PrivateAttr
 from qsimpy.core import Task
 from qsimpy.simplequeue import SimpleQueue
 
+from qsimpy_aqm.newdelta import Horizon
+
 
 class OfflineOptimumQueue(SimpleQueue):
     """Models a FIFO queue with offline optimum AQM"""
 
     type: str = "offlineoptimumqueue"
     _queue_df: pd.DataFrame = PrivateAttr(default=None)
+    horizon: Horizon = None
     debug_drops: bool = False
     debug_all: bool = False
 
@@ -82,6 +85,14 @@ class OfflineOptimumQueue(SimpleQueue):
         )
         state_df["index"] = np.arange(len(state_df))
         state_df["oo_service_delay"] = tasks["oo_service_delay"]
+
+        if self.horizon is not None:
+            # populate df with horizon hypothetical tasks
+            # call by ref
+            self.horizon.populate(tasks=state_df)
+            # remove the tail tasks with indexes larger than max_length
+            # call by ref
+            self.horizon.haircut(tasks=state_df)
 
         return state_df
 

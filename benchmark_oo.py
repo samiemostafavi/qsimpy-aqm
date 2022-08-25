@@ -9,6 +9,7 @@ import numpy as np
 # https://stackoverflow.com/questions/39465503/cuda-error-out-of-memory-in-tensorflow
 # The problem is, that Tensorflow is greedy in allocating all available VRAM. That causes issues when multi processes start using CUDA
 # import tensorflow as tf
+from loguru import logger
 
 # To make tensorflow and CUDA work with multiprocessing, this article really helped:
 # https://sefiks.com/2019/03/20/tips-and-tricks-for-gpu-and-multiprocessing-in-tensorflow/
@@ -39,7 +40,7 @@ def create_run_graph(params):
     # Create a source
     # arrival process deterministic
     arrival = Deterministic(
-        rate=0.095,
+        rate=0.09,
         seed=params["arrival_seed"],
         dtype="float64",
     )
@@ -129,7 +130,7 @@ def create_run_graph(params):
     # report timesteps
     def report_state(time_step):
         yield model.env.timeout(time_step)
-        print(
+        logger.info(
             f"{params['run_number']}: Simulation progress {100.0*float(model.env.now)/float(params['until'])}% done"
         )
 
@@ -142,21 +143,23 @@ def create_run_graph(params):
     start = time.time()
     model.env.run(until=params["until"])
     end = time.time()
-    print("{0}: Run finished in {1} seconds".format(params["run_number"], end - start))
+    logger.info(
+        "{0}: Run finished in {1} seconds".format(params["run_number"], end - start)
+    )
 
-    print(
+    logger.info(
         "{0}: Source generated {1} tasks".format(
             params["run_number"], source.get_attribute("tasks_generated")
         )
     )
-    print(
+    logger.info(
         "{0}: Queue completed {1}, dropped {2}".format(
             params["run_number"],
             queue.get_attribute("tasks_completed"),
             queue.get_attribute("tasks_dropped"),
         )
     )
-    print(
+    logger.info(
         "{0}: Sink received {1} tasks".format(
             params["run_number"], sink.get_attribute("tasks_received")
         )
@@ -175,7 +178,7 @@ def create_run_graph(params):
         compression="snappy",
     )
 
-    print(
+    logger.info(
         "{0}: Data processing finished in {1} seconds".format(
             params["run_number"], end - start
         )
@@ -186,12 +189,12 @@ if __name__ == "__main__":
 
     # project folder setting
     p = Path(__file__).parents[0]
-    project_path = str(p) + "/projects/oo_benchmark_highutil/"
+    project_path = str(p) + "/projects/oo_benchmark_lowutil/"
     os.makedirs(project_path, exist_ok=True)
 
     # simulation parameters
     # quantile values of no-aqm model with p1 as gpd_concentration
-    """
+
     bench_params = {  # target_delay
         "p999": 119.36120,
         "p99": 82.02233,
@@ -206,7 +209,7 @@ if __name__ == "__main__":
         "p9": 96.69882,
         "p8": 69.02151,
     }
-
+    """
     # another important
     mp.set_start_method("spawn", force=True)
 
@@ -220,7 +223,7 @@ if __name__ == "__main__":
 
             # parameter figure out
             keys = list(bench_params.keys())
-            key_this_run = keys[j % len(keys)]
+            key_this_run = keys[i % len(keys)]
 
             # create and prepare the results directory
             results_path = project_path + key_this_run + "_results/"

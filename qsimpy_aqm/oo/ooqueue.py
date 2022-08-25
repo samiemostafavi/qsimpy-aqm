@@ -4,6 +4,7 @@ from dataclasses import field, make_dataclass
 
 import numpy as np
 import pandas as pd
+from pydantic import PrivateAttr
 from qsimpy.core import Task
 from qsimpy.simplequeue import SimpleQueue
 
@@ -12,8 +13,11 @@ class OfflineOptimumQueue(SimpleQueue):
     """Models a FIFO queue with offline optimum AQM"""
 
     type: str = "offlineoptimumqueue"
+    _queue_df: pd.DataFrame = PrivateAttr(default=None)
+    debug_drops: bool = False
+    debug_all: bool = False
 
-    def dequeue_oo_internal(self, df: pd.DataFrame, inp_dict: dict):
+    def oo_internal(self, df: pd.DataFrame, inp_dict: dict):
 
         # everything is about the first row of df
         item = df.iloc[:1].to_dict("records")[0]
@@ -31,7 +35,7 @@ class OfflineOptimumQueue(SimpleQueue):
                 count = count + 1
 
             # return a dict wrapped in a list to be appendable
-            return [{"score": count, "dict": res_dict}]
+            return [{"Psi": count, "dict": res_dict}]
 
         # more than one row are in the df
         if item["delay_budget"] < item["oo_service_delay"]:
@@ -42,7 +46,7 @@ class OfflineOptimumQueue(SimpleQueue):
             # Drop only:
             # True: pass, False: drop
             upd_dict_d = {item["id"]: False, **inp_dict}
-            return self.dequeue_oo_internal(df_cp, upd_dict_d)
+            return self.oo_internal(df_cp, upd_dict_d)
 
         else:
 
@@ -52,7 +56,7 @@ class OfflineOptimumQueue(SimpleQueue):
             df_cp_d = df_cp_d.iloc[1:, :]
             # True: pass, False: drop
             upd_dict_d = {item["id"]: False, **inp_dict}
-            result_d = self.dequeue_oo_internal(df_cp_d, upd_dict_d)
+            result_d = self.oo_internal(df_cp_d, upd_dict_d)
 
             # Pass branch:
             # copy df and remove the first row
@@ -62,23 +66,73 @@ class OfflineOptimumQueue(SimpleQueue):
             upd_dict_p = {item["id"]: True, **inp_dict}
             # update delay_budget of the rest of the items
             df_cp_p["delay_budget"] = df_cp_p["delay_budget"] - item["oo_service_delay"]
-            result_p = self.dequeue_oo_internal(df_cp_p, upd_dict_p)
+            result_p = self.oo_internal(df_cp_p, upd_dict_p)
 
             # return the result list
             return result_d + result_p
 
-    def dequeue_oo(self, df) -> bool:
+    def prepare_oo(
+        self,
+        tasks: pd.DataFrame,
+    ):
+        state_df = pd.DataFrame()
+        # obtain all tasks delay budgets
+        state_df["delay_budget"] = tasks["delay_bound"] - (
+            self._env.now - tasks["start_time"]
+        )
+        state_df["index"] = np.arange(len(state_df))
 
-        # gonna decide whether to drop the first item or not
-        first_item = df.iloc[:1].to_dict("records")[0]
+        return state_df
+
+    def print_solution_results(self, results: dict):
+        df = pd.DataFrame(columns=["idx", "Psi", "act"])
+        for idx, solution in enumerate(results):
+            solution_actions = dict(sorted(solution["dict"].items()))
+            action_str = ""
+            for a in solution_actions:
+                action_str = action_str + ("p" if solution_actions[a] else "d")
+            df.loc[idx] = [idx, solution["Psi"], action_str]
+            # print(f"{idx}: Psi={solution['Psi']}, act={action_str}")
+        df = df.sort_values(by=["Psi"], ascending=False)
+        print(df.head(10))
+
+    def pop_head_queue_df(self):
+        # once the decision is made, update _queue_df
+        # drop last row
+        self._queue_df.drop(
+            index=self._queue_df.index[0],
+            axis=0,
+            inplace=True,
+        )
+        self._queue_df.reset_index(drop=True, inplace=True)  # important
+
+    def oo_drop(self):
+
+        # prepare
+        state_df = self.prepare_oo(tasks=self._queue_df)
 
         # False: do not drop, True: drop
-        results = self.dequeue_oo_internal(df=df, inp_dict={})
-        scores = [rdict["score"] for rdict in results]
-        max_score = max(scores)
-        max_index = scores.index(max_score)
+        results = self.oo_internal(df=state_df, inp_dict={})
+        Psis = [rdict["Psi"] for rdict in results]
+        max_Psi = max(Psis)
+        max_index = Psis.index(max_Psi)
         chosen_one = results[max_index]
-        return not chosen_one["dict"][first_item["id"]]
+
+        # return True or False for the first element (head)
+        drop = not chosen_one["dict"][0]
+
+        if (self.debug_drops and drop) or self.debug_all:
+            print(
+                f"DROP: {drop} chosen action: {max_index}, task id: {self._queue_df.id[0]}"
+            )
+            self.print_solution_results(results)
+            print("state dataframe:")
+            print(f"{state_df}")
+
+        # important, pop the head
+        self.pop_head_queue_df()
+
+        return drop
 
     def run(self) -> None:
         """
@@ -86,31 +140,27 @@ class OfflineOptimumQueue(SimpleQueue):
         """
         while True:
 
-            # before popping the head of queue, OO algorithm kicks in
-            # create the dataframe
-            df_original = pd.DataFrame(self._store.items)
-            if len(df_original) > 0:
-                # obtain all tasks delay budgets
-                df_original["delay_budget"] = df_original["delay_bound"] - (
-                    self._env.now - df_original["start_time"]
-                )
-                if self.dequeue_oo(df_original):
-                    if self._debug:
-                        # print(f"DROP: delta:{delta}, s_dropped: {s2}, s_original:{s1}, len(s):{len(df_original)}")
-                        print(df_original)
-                    d_task = yield self._store.get()
-                    # drop the task
-                    self.attributes["tasks_dropped"] += 1
-                    if self.drop is not None:
-                        self._drop.put(d_task)
-
-                    # start over
-                    continue
-
             # server takes the head task from the queue
             task = yield self._store.get()
             self.attributes["queue_length"] -= 1
 
+            # OO algorithm kicks in
+            drop_task = self.oo_drop()
+
+            # EVENT drop_decision_made
+            task = self.add_records(task=task, event_name="drop_decision_made")
+
+            # perform offline optimum's decision
+            if drop_task:
+                # drop the task
+                self.attributes["tasks_dropped"] += 1
+                if self.drop is not None:
+                    self._drop.put(task)
+
+                # start over
+                continue
+
+            # pass the task for the service
             # EVENT service_start
             task = self.add_records(task=task, event_name="service_start")
 
@@ -168,4 +218,14 @@ class OfflineOptimumQueue(SimpleQueue):
 
             # store the task in the queue
             self.attributes["queue_length"] += 1
+
+            # update the queue dataframe
+            if self._queue_df is not None:
+                self._queue_df = pd.concat(
+                    [self._queue_df, pd.DataFrame([task])],
+                    ignore_index=True,
+                )
+            else:
+                self._queue_df = pd.DataFrame([task])
+
             self._store.put(task)

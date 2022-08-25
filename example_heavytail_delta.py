@@ -7,8 +7,8 @@ from qsimpy.core import Model, TimedSource
 from qsimpy.polar import PolarSink
 from qsimpy.random import Deterministic
 
-from arrivals import HeavyTailGamma
 from qsimpy_aqm.delta import DeltaQueue, PredictorAddresses
+from qsimpy_aqm.random import HeavyTailGamma
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes

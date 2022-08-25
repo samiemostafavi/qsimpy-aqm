@@ -24,8 +24,8 @@ def create_run_graph(params):
     import qsimpy
     from qsimpy.random import Deterministic
 
-    from arrivals import HeavyTailGamma
     from qsimpy_aqm.codel import CodelQueue
+    from qsimpy_aqm.random import HeavyTailGamma
 
     # Create the QSimPy environment
     # a class for keeping all of the entities and accessing their attributes

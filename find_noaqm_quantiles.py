@@ -3,7 +3,7 @@ import os
 from pyspark.sql import SparkSession
 
 records_path = "projects/no_aqm/records_new/"
-qrange_list = [0.8, 0.9, 0.99, 0.999, 0.9999, 0.99999]
+qrange_list = [0.8, 0.9, 0.99, 0.999]
 
 
 def init_spark():

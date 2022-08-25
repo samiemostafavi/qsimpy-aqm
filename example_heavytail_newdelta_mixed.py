@@ -9,9 +9,9 @@ from qsimpy.core import Model, Source, TimedSource
 from qsimpy.polar import PolarSink
 from qsimpy.random import Deterministic, Exponential
 
-from arrivals import HeavyTailGamma
 from qsimpy_aqm.delta import PredictorAddresses
 from qsimpy_aqm.newdelta import NewDeltaQueueMix
+from qsimpy_aqm.random import HeavyTailGamma
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes

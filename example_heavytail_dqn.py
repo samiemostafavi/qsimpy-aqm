@@ -7,8 +7,8 @@ import qsimpy
 import seaborn as sns
 from qsimpy.random import Deterministic
 
-from arrivals import HeavyTailGamma
 from qsimpy_aqm.dqn import DQNQueue
+from qsimpy_aqm.random import HeavyTailGamma
 
 # Create the QSimPy environment
 # a class for keeping all of the entities and accessing their attributes

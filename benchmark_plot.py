@@ -27,7 +27,7 @@ def init_spark():
 spark, sc = init_spark()
 
 # open the dataframe from parquet files
-project_folder = "projects/aqm_benchmark_lowutil/"
+project_folder = "projects/aqm_benchmark_highutil/"
 project_paths = [
     project_folder + name
     for name in os.listdir(project_folder)

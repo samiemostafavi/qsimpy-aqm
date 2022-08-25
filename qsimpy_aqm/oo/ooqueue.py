@@ -29,9 +29,9 @@ class OfflineOptimumQueue(SimpleQueue):
             count = np.count_nonzero(values)
             # check if this row is gonna pass itself and update the dict
             if item["delay_budget"] < item["oo_service_delay"]:
-                res_dict = {item["id"]: False, **inp_dict}
+                res_dict = {item["index"]: False, **inp_dict}
             else:
-                res_dict = {item["id"]: True, **inp_dict}
+                res_dict = {item["index"]: True, **inp_dict}
                 count = count + 1
 
             # return a dict wrapped in a list to be appendable
@@ -45,7 +45,7 @@ class OfflineOptimumQueue(SimpleQueue):
             df_cp = df_cp.iloc[1:, :]
             # Drop only:
             # True: pass, False: drop
-            upd_dict_d = {item["id"]: False, **inp_dict}
+            upd_dict_d = {item["index"]: False, **inp_dict}
             return self.oo_internal(df_cp, upd_dict_d)
 
         else:
@@ -55,7 +55,7 @@ class OfflineOptimumQueue(SimpleQueue):
             df_cp_d = df.copy()
             df_cp_d = df_cp_d.iloc[1:, :]
             # True: pass, False: drop
-            upd_dict_d = {item["id"]: False, **inp_dict}
+            upd_dict_d = {item["index"]: False, **inp_dict}
             result_d = self.oo_internal(df_cp_d, upd_dict_d)
 
             # Pass branch:
@@ -63,7 +63,7 @@ class OfflineOptimumQueue(SimpleQueue):
             df_cp_p = df.copy()
             df_cp_p = df_cp_p.iloc[1:, :]
             # True: pass, False: drop
-            upd_dict_p = {item["id"]: True, **inp_dict}
+            upd_dict_p = {item["index"]: True, **inp_dict}
             # update delay_budget of the rest of the items
             df_cp_p["delay_budget"] = df_cp_p["delay_budget"] - item["oo_service_delay"]
             result_p = self.oo_internal(df_cp_p, upd_dict_p)
@@ -81,6 +81,7 @@ class OfflineOptimumQueue(SimpleQueue):
             self._env.now - tasks["start_time"]
         )
         state_df["index"] = np.arange(len(state_df))
+        state_df["oo_service_delay"] = tasks["oo_service_delay"]
 
         return state_df
 

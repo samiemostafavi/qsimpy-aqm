@@ -66,6 +66,8 @@ def create_run_graph(params):
     queue = OfflineOptimumQueue(
         name="queue",
         service_rp=service,
+        debug_all=False,
+        debug_drops=False,
     )
     model.add_entity(queue)
 
@@ -214,8 +216,8 @@ if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
 
     # 4 x 4, until 1000000 took 7 hours
-    sequential_runs = 1  # 4
-    parallel_runs = 16  # 18
+    sequential_runs = 1  # 1
+    parallel_runs = 16  # 16
     for j in range(sequential_runs):
 
         processes = []

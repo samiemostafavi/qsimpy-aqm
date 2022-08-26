@@ -5,8 +5,8 @@ import math
 import numpy as np
 import simpy
 from pydantic import PrivateAttr
-from qsimpy import SimpleQueue
 from qsimpy.core import Model, Task
+from qsimpy.simplequeue import SimpleQueue
 
 
 class CodelQueue(SimpleQueue):

@@ -7,7 +7,8 @@ from typing import List
 import numpy as np
 import pandas as pd
 import simpy
-from loguru import logger
+
+# from loguru import logger
 from pr3d.common.core import ConditionalDensityEstimator
 from pr3d.de import (
     ConditionalGammaEVM,
@@ -56,9 +57,9 @@ class Horizon(BaseModel):
         """
         if self.max_length is not None:
             if len(tasks) > self.max_length:
-                logger.warning(
-                    f"State vector length: {len(tasks)}, dropping to {self.max_length}"
-                )
+                # logger.warning(
+                #     f"State vector length: {len(tasks)}, dropping to {self.max_length}"
+                # )
                 tasks.drop(tasks.index[self.max_length :], inplace=True)
 
 

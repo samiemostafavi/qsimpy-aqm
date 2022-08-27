@@ -13,6 +13,7 @@ def mixture_samples(
     gpd_sample_t,
     bulk_sample_t,
     dtype: tf.DType,
+    be_quiet: bool = False,
 ):
 
     gpd_multiplexer = cdf_bool_split_t
@@ -54,9 +55,11 @@ class HeavyTailGamma(RandomProcess):
     def prepare_for_run(self):
         self._rng = tf.random.Generator.from_seed(self.seed)
         if self.batch_size is not None:
-            logger.info(
-                f"HeavyTailGamma random process generating {self.batch_size} samples"
-            )
+            if not self.be_quiet:
+                logger.info(
+                    "HeavyTailGamma random process "
+                    + f"generating {self.batch_size} samples",
+                )
             self._pregenerated_samples = self.sample_n(self.batch_size)
 
     def sample(self):
@@ -70,9 +73,11 @@ class HeavyTailGamma(RandomProcess):
                 self._counter = 0
                 res = self._pregenerated_samples[self._counter]
                 self._counter = self._counter + 1
-                logger.info(
-                    f"HeavyTailGamma random process refilled the samples, {self.batch_size} more."
-                )
+                if not self.be_quiet:
+                    logger.info(
+                        "HeavyTailGamma random process refilled"
+                        + f"the samples, {self.batch_size} more."
+                    )
             return res
         else:
             return self.sample_n(1)[0]

@@ -13,7 +13,6 @@ def mixture_samples(
     gpd_sample_t,
     bulk_sample_t,
     dtype: tf.DType,
-    be_quiet: bool = False,
 ):
 
     gpd_multiplexer = cdf_bool_split_t
@@ -47,6 +46,7 @@ class HeavyTailGamma(RandomProcess):
     gpd_concentration: np.float64
     threshold_qnt: np.float64
     batch_size: int = None
+    be_quiet: bool = False
 
     # private parameters for batch sample generation
     _pregenerated_samples: list[np.float64] = PrivateAttr(default=[])

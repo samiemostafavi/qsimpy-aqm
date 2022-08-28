@@ -6,8 +6,8 @@ import simpy
 import simpy.events
 from gym import spaces
 from pydantic import PrivateAttr
-from qsimpy import SimpleQueue
 from qsimpy.core import Model, Task
+from qsimpy.simplequeue import SimpleQueue
 from stable_baselines3 import PPO
 from stable_baselines3.ppo.policies import MlpPolicy
 

@@ -9,9 +9,9 @@ import simpy
 import simpy.events
 from gym import spaces
 from pydantic import PrivateAttr
-from qsimpy import Entity, SimpleQueue
-from qsimpy.core import Model, Task
+from qsimpy.core import Entity, Model, Task
 from qsimpy.random import Deterministic, RandomProcess
+from qsimpy.simplequeue import SimpleQueue
 from stable_baselines3 import PPO
 from stable_baselines3.ppo.policies import MlpPolicy
 

@@ -217,7 +217,6 @@ class DQNQueue(SimpleQueue):
     delta: float
     delay_ref: float
 
-    _latest_queue_delay: np.float64 = PrivateAttr()
     _entrance_timestamps: list = PrivateAttr()
     _aqm_drop: bool = PrivateAttr()
     _observations: tuple = PrivateAttr()
@@ -230,7 +229,6 @@ class DQNQueue(SimpleQueue):
         super().prepare_for_run(model, env, debug)
 
         self._entrance_timestamps = []
-        self._latest_queue_delay = 0
         self._aqm_drop = False
         self._observations = ()
         self._training = False
@@ -274,23 +272,8 @@ class DQNQueue(SimpleQueue):
         serving tasks
         """
         while True:
-            if self._aqm_drop:
-                d_task = yield self._store.get()
-                # drop the task
-                self.attributes["tasks_dropped"] += 1
 
-                # pop the oldest timestamp because that corresponds to the head task
-                self._latest_queue_delay = (
-                    self._env.now - self._entrance_timestamps.pop(0)
-                )
-
-                if self.drop is not None:
-                    self._drop.put(d_task)
-
-                # start over
-                continue
-
-            # server takes the head task from the queue
+            # pop the head
             task = yield self._store.get()
             self.attributes["queue_length"] -= 1
 
@@ -300,6 +283,16 @@ class DQNQueue(SimpleQueue):
                 "last_queue_delay"
             ] = self._env.now - self._entrance_timestamps.pop(0)
 
+            if self._aqm_drop:
+                # drop the task
+                self.attributes["tasks_dropped"] += 1
+                if self.drop is not None:
+                    self._drop.put(task)
+
+                # start over
+                continue
+
+            # pass the task for the service
             # EVENT service_start
             task = self.add_records(task=task, event_name="service_start")
 

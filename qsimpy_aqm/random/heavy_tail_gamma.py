@@ -289,7 +289,6 @@ class HeavyTailGamma(RandomProcess):
         # sample conditioned on a longer_delay_prob
         time_in_service = self.quantile(samples_np=1.00 - np.array([ldp]))
         time_in_service = time_in_service[0]
-        print(time_in_service)
         # if ldp==1.00
         if time_in_service == 0:
             return self.sample()

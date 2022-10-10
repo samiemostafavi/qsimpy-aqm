@@ -229,6 +229,77 @@ class HeavyTailGamma(RandomProcess):
 
         return result
 
+    def quantile(self, samples_np: np.array):
+
+        samples_t = tf.convert_to_tensor(value=samples_np, dtype=self.dtype)
+
+        threshold_qnt_t = tf.convert_to_tensor(self.threshold_qnt, dtype=self.dtype)
+
+        gamma = tfp.distributions.Gamma(
+            concentration=np.tile(self.gamma_concentration, 2).astype(self.dtype)[0],
+            rate=np.tile(self.gamma_rate, 2).astype(self.dtype)[0],
+        )
+
+        threshold_act_t = gamma.quantile(threshold_qnt_t)
+
+        # split the samples into bulk and tail according to the norm_factor (from X and Y)
+        # gives a tensor, indicating which random_input are greater than norm_factor
+        # greater than threshold is true, else false
+        bool_split_t = tf.greater(samples_t, threshold_qnt_t)  # this is in Boolean
+
+        # gamma samples tensor
+        gamma_samples_t = gamma.quantile(samples_t)
+
+        # gpd samples tensor
+        gpd_presamples_t = tf.divide(
+            samples_t - threshold_qnt_t,
+            tf.constant(1.00, dtype=self.dtype) - threshold_qnt_t,
+        )
+
+        gpd_scale = tf.multiply(
+            tf.divide(
+                tf.constant(1.00, dtype=self.dtype),
+                gamma.prob(threshold_act_t),
+            ),
+            tf.square(tf.constant(1.00, dtype=self.dtype) - threshold_qnt_t),
+        )
+
+        gpd = tfp.distributions.GeneralizedPareto(
+            loc=np.tile(0.00, 2).astype(self.dtype)[0],
+            scale=gpd_scale,
+            concentration=np.tile(self.gpd_concentration, 2).astype(self.dtype)[0],
+        )
+        gpd_samples_t = (
+            gpd.quantile(gpd_presamples_t)
+            / (tf.constant(1.00, dtype=self.dtype) - threshold_qnt_t)
+            + threshold_act_t
+        )
+
+        # pass them through the mixture filter
+        result = mixture_samples(
+            cdf_bool_split_t=bool_split_t,
+            gpd_sample_t=gpd_samples_t,
+            bulk_sample_t=gamma_samples_t,
+            dtype=self.dtype,
+        )
+
+        return result.numpy()
+
+    def sample_ldp(self, ldp: float):
+        # sample conditioned on a longer_delay_prob
+        time_in_service = self.quantile(samples_np=1.00 - np.array([ldp]))
+        time_in_service = time_in_service[0]
+        print(time_in_service)
+        # if ldp==1.00
+        if time_in_service == 0:
+            return self.sample()
+
+        sample = 0
+        while sample < time_in_service:
+            sample = self.sample()
+
+        return sample - time_in_service
+
     def cdf(
         self,
         y,
